@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/syscall.h>
 #include <functional>
+#include <sys/socket.h>
 /* based on code from
  * https://blog.nelhage.com/2010/08/write-yourself-an-strace-in-70-lines-of-code/
  */
@@ -50,17 +51,46 @@ class Syscall {
 		}
 
 		virtual void finish() { }
+
+		virtual bool operator ==(const Syscall &other) const {
+			return number == other.number;
+		}
 };
 
 class SysRead : public Syscall {
 	public:
-		SysRead() { }
+};
+
+class SysRecvfrom : public Syscall {
+	public:
+		int socket;
+		void *buffer;
+		size_t length;
+		int flags;
+		struct sockaddr *addr;
+		socklen_t *addrlen;
+
+		SysRecvfrom() {
+			socket = params[0];
+			buffer = (void *)params[1];
+			length = params[2];
+			flags = params[3];
+			addr = (struct sockaddr *)params[4];
+			addrlen = (socklen_t *)params[5];
+		}
+
+		bool operator ==(const SysRecvfrom &other) const {
+			/* Simple "fuzzy" comparison: socket is the same */
+			/* TODO: check addr for source, etc */
+			return socket == other.socket;
+		}
 };
 
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
  * use. */
 std::function<Syscall *()> syscallmap[1024] = {
 	[SYS_read] = [](){return new SysRead();},
+	[SYS_recvfrom] = [](){return new SysRecvfrom();},
 };
 
 int wait_for_syscall(int p)
