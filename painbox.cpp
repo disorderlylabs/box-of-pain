@@ -48,9 +48,13 @@ class Syscall {
 			for(int i=0;i<MAX_PARAMS;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
 			}
+			init();
+			start();
 		}
 
 		virtual void finish() { }
+		virtual void start() { }
+		virtual void init() { };
 
 		virtual bool operator ==(const Syscall &other) const {
 			return number == other.number;
@@ -70,7 +74,7 @@ class SysRecvfrom : public Syscall {
 		struct sockaddr *addr;
 		socklen_t *addrlen;
 
-		SysRecvfrom() {
+		void init() {
 			socket = params[0];
 			buffer = (void *)params[1];
 			length = params[2];
@@ -84,6 +88,9 @@ class SysRecvfrom : public Syscall {
 			/* TODO: check addr for source, etc */
 			return socket == other.socket;
 		}
+
+		void start() { }
+		void finish() { }
 };
 
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
