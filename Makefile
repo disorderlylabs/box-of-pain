@@ -1,5 +1,5 @@
 CXXFLAGS=-std=c++1z -Wall -Wextra -Og -g
-CXX=clang
+CXX=g++
 
 SOURCES=painbox.cpp helper.cpp
 DEPS=$(SOURCES:.cpp=.d)

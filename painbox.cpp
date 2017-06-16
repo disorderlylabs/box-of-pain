@@ -10,20 +10,18 @@
 #include <sys/syscall.h>
 #include <functional>
 #include <sys/socket.h>
-/* based on code from
- * https://blog.nelhage.com/2010/08/write-yourself-an-strace-in-70-lines-of-code/
- */
 
 class Syscall;
 struct trace {
 	int pid;
 	int status;
-	bool exited;
-	int sysnum;
+	long sysnum;
 	Syscall *syscall;
+	bool exited;
 };
 
-struct trace *traces;
+int num_traces=0;
+struct trace *traces = NULL;
 
 #define MAX_PARAMS 6 /* linux has 6 register parameters */
 
@@ -51,14 +49,12 @@ class Syscall {
 		enum syscall_state state;
 
 		Syscall() {
-			frompid = pid;
 			state = STATE_CALLED;
 			number = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*ORIG_RAX);
 			for(int i=0;i<MAX_PARAMS;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
 			}
 			init();
-			start();
 		}
 
 		virtual void finish() { }
@@ -102,81 +98,101 @@ class SysRecvfrom : public Syscall {
 		void finish() { }
 };
 
+#if 0
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
  * use. */
 std::function<Syscall *()> syscallmap[1024] = {
 	[SYS_read] = [](){return new SysRead();},
 	[SYS_recvfrom] = [](){return new SysRecvfrom();},
 };
+#endif
 
-int wait_for_syscall(void)
+struct trace *wait_for_syscall(void)
 {
 	int status;
 	while(1) {
 		int pid;
 		if((pid=waitpid(-1, &status, 0)) == -1) {
-			return -1;
+			return NULL;
 		}
-		traces[pid].status = status;
+
+		struct trace *tracee = NULL;
+		for(int i=0;i<num_traces;i++) {
+			if(pid == traces[i].pid) {
+				tracee = &traces[i];
+				break;
+			}
+		}
+
+		if(tracee == NULL) {
+			fprintf(stderr, "waitpid returned untraced process %d!\n", pid);
+			exit(1);
+		}
+
+		tracee->status = status;
 		if(WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
-			return pid;
+			return tracee;
 		}
 		if(WIFEXITED(status)) {
-			traces[pid].exited = true;
-			return pid;
+			tracee->exited = true;
+			return tracee;
 		}
+		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
 	}
 }
 
 int do_trace()
 {
-	int syscall, retval;
 	for(int i=0;i<num_traces;i++) {
+		fprintf(stderr, "init trace on %d\n", traces[i].pid);
+		int status;
 		traces[i].sysnum = -1;
-    	waitpid(traces[i].pid, &status, 0);
+    	if(waitpid(traces[i].pid, &status, 0) == -1) {
+			perror("waitpid");
+		}
 		ptrace(PTRACE_SETOPTIONS, traces[i].pid, 0, PTRACE_O_TRACESYSGOOD);
+		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 		ptrace(PTRACE_SYSCALL, traces[i].pid, 0, 0);
+		if(errno != 0) { perror("ptrace SYSCALL"); }
 	}
 
+	int num_exited = 0;
 	while(true) {
-		int pid;
-		if((pid=wait_for_syscall()) == -1) break;
+		struct trace *tracee;
+		if((tracee=wait_for_syscall()) == NULL) break;
 
-		if(traces[pid].sysnum == -1) {
-			traces[pid].sysnum = ptrace(PTRACE_PEEKUSER, pid, sizeof(long)*ORIG_RAX);
+		if(tracee->exited) {
+			num_exited++;
+			fprintf(stderr, "PID %d exited\n", tracee->pid);
+			if(num_exited == num_traces) break;
+			continue;
+		}
+
+		if(tracee->sysnum == -1) {
+			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 
-			fprintf(stderr, "[%d]: syscall %d entry\n", pid, traces[pid].sysnum);
-			traces[pid].syscall = NULL;
-			try { traces[pid].syscall = syscallmap[traces[pid].sysnum](); } catch (std::bad_function_call e) {}
+			fprintf(stderr, "[%d]: syscall %ld entry\n", tracee->pid, tracee->sysnum);
+			tracee->syscall = NULL;
+	//		try { tracee->syscall = syscallmap[tracee->sysnum](pid); } catch (std::bad_function_call e) {}
+
+			if(tracee->syscall) {
+				tracee->syscall->frompid = tracee->pid;
+				tracee->syscall->start();
+			}
 		} else {
-			int retval = ptrace(PTRACE_PEEKUSER, pid, sizeof(long)*RAX);
+			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
 			if(errno != 0) break;
-			fprintf(stderr, "[%d]: syscall %d exit -> %d\n", pid, traces[pid].sysnum, retval);
-			if(
+			fprintf(stderr, "[%d]: syscall %ld exit -> %d\n", tracee->pid, tracee->sysnum, retval);
+			if(tracee->syscall) {
+				tracee->syscall->retval = retval;
+				tracee->syscall->state = STATE_DONE;
+				tracee->syscall->finish();
+			}
+			tracee->sysnum = -1;
 		}
+		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
 
-		syscall = ptrace(PTRACE_PEEKUSER, pid, sizeof(long)*ORIG_RAX);
-		if(errno != 0) break;
-		fprintf(stderr, "syscall(%d) = ", syscall);
-		Syscall *s = NULL;
-		try {
-			s = syscallmap[syscall]();
-		} catch(std::bad_function_call e) {
-
-		}
-		
-		if(wait_for_syscall(pid) != 0) break;
-		retval = ptrace(PTRACE_PEEKUSER, pid, sizeof(long)*RAX);
-		if(errno != 0) break;
-		fprintf(stderr, "%d\n", retval);
-
-		if(s) {
-			s->retval = retval;
-			s->state = STATE_DONE;
-			s->finish();
-		}
-		
 	}
 	return 0;
 }
@@ -184,15 +200,22 @@ int do_trace()
 int main(int argc, char **argv)
 {
 	for(int i=1;i<argc;i++) {
-		pid = fork();
+		fprintf(stderr, "starting %s\n", argv[i]);
+		int pid = fork();
 		if(pid == 0) {
 			ptrace(PTRACE_TRACEME);
 			kill(getpid(), SIGSTOP);
 			if(execlp(argv[i], argv[i], NULL) == -1) {
-				fprintf(stderr, "failed to execute %s\n", argv[1]);
+				fprintf(stderr, "failed to execute %s\n", argv[i]);
 			}
 			exit(255);
 		}
+		num_traces++;
+		traces = (trace *)realloc(traces, num_traces * sizeof(struct trace));
+		traces[num_traces-1].pid = pid;
+		traces[num_traces-1].sysnum = -1; //we're not in a syscall to start.
+		traces[num_traces-1].syscall = NULL;
+		traces[num_traces-1].exited = false;
 	}
 	do_trace();
 }
