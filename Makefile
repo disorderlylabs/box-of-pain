@@ -1,5 +1,5 @@
 CXXFLAGS=-std=c++1z -Wall -Wextra -Og -g
-CXX=g++
+CXX=c++
 
 CFLAGS=-std=gnu11 -Wall -Wextra -Og -g
 CC=gcc

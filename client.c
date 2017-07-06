@@ -19,8 +19,8 @@ int main()
 	serveraddr.sin_port = htons(1234);
 
 	if(connect(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) == -1) {
-      perror("connect");
-	  exit(1);
+		perror("connect");
+		exit(1);
 	}
 
 	const char *msg = "Hello, Server!\n";
@@ -30,7 +30,7 @@ int main()
 	memset(buf, 0, 128);
 	read(sockfd, buf, 128);
 
-	printf("Reply: %s\n", buf);
+	fprintf(stderr, "Reply: %s\n", buf);
 	close(sockfd);
 	return 0;
 }

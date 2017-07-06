@@ -33,7 +33,7 @@ int main()
 	char buf[128];
 	memset(buf, 0, 128);
 	read(client, buf, 128);
-	printf("Client wrote %s\n", buf);
+	fprintf(stderr, "Client wrote %s\n", buf);
 
 	const char *msg = "Hello yourself!\n";
 	write(client, msg, strlen(msg));

@@ -11,9 +11,12 @@
 #include <functional>
 #include <sys/socket.h>
 
+#include "scnames.h"
+
 class Syscall;
 struct trace {
 	int pid;
+	int id;
 	int status;
 	long sysnum;
 	Syscall *syscall;
@@ -172,7 +175,7 @@ int do_trace()
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 
-			fprintf(stderr, "[%d]: syscall %ld entry\n", tracee->pid, tracee->sysnum);
+			fprintf(stderr, "[%d]: %s entry\n", tracee->id, syscall_names[tracee->sysnum]);
 			tracee->syscall = NULL;
 	//		try { tracee->syscall = syscallmap[tracee->sysnum](pid); } catch (std::bad_function_call e) {}
 
@@ -183,7 +186,7 @@ int do_trace()
 		} else {
 			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
 			if(errno != 0) break;
-			fprintf(stderr, "[%d]: syscall %ld exit -> %d\n", tracee->pid, tracee->sysnum, retval);
+			fprintf(stderr, "[%d]: %s exit -> %d\n", tracee->id, syscall_names[tracee->sysnum], retval);
 			if(tracee->syscall) {
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
@@ -199,6 +202,7 @@ int do_trace()
 
 int main(int argc, char **argv)
 {
+	static int _id = 0;
 	for(int i=1;i<argc;i++) {
 		fprintf(stderr, "starting %s\n", argv[i]);
 		int pid = fork();
@@ -212,6 +216,7 @@ int main(int argc, char **argv)
 		}
 		num_traces++;
 		traces = (trace *)realloc(traces, num_traces * sizeof(struct trace));
+		traces[num_traces-1].id = _id++;
 		traces[num_traces-1].pid = pid;
 		traces[num_traces-1].sysnum = -1; //we're not in a syscall to start.
 		traces[num_traces-1].syscall = NULL;
