@@ -51,29 +51,31 @@ class Syscall {
 		unsigned long retval;
 		enum syscall_state state;
 
-		Syscall() {
+		Syscall(int fpid) {
+			frompid = fpid;
 			state = STATE_CALLED;
 			number = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*ORIG_RAX);
 			for(int i=0;i<MAX_PARAMS;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
 			}
-			init();
 		}
 
 		virtual void finish() { }
 		virtual void start() { }
-		virtual void init() { };
 
 		virtual bool operator ==(const Syscall &other) const {
 			return number == other.number;
 		}
 };
 
-class SysRead : public Syscall {
+class Sysread : public Syscall {
 	public:
+		Sysread(int fpid) : Syscall(fpid) {}
+		void start() {}
+		void finish() {}
 };
 
-class SysRecvfrom : public Syscall {
+class Sysrecvfrom : public Syscall {
 	public:
 		int socket;
 		void *buffer;
@@ -82,7 +84,9 @@ class SysRecvfrom : public Syscall {
 		struct sockaddr *addr;
 		socklen_t *addrlen;
 
-		void init() {
+		Sysrecvfrom(int fpid) : Syscall(fpid) {}
+
+		void start() {
 			socket = params[0];
 			buffer = (void *)params[1];
 			length = params[2];
@@ -91,24 +95,21 @@ class SysRecvfrom : public Syscall {
 			addrlen = (socklen_t *)params[5];
 		}
 
-		bool operator ==(const SysRecvfrom &other) const {
+		bool operator ==(const Sysrecvfrom &other) const {
 			/* Simple "fuzzy" comparison: socket is the same */
 			/* TODO: check addr for source, etc */
 			return socket == other.socket;
 		}
 
-		void start() { }
 		void finish() { }
 };
 
-#if 0
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
  * use. */
-std::function<Syscall *()> syscallmap[1024] = {
-	[SYS_read] = [](){return new SysRead();},
-	[SYS_recvfrom] = [](){return new SysRecvfrom();},
-};
-#endif
+template <typename T>
+Syscall * make(int fpid) { return new T(fpid); }
+
+Syscall * (*syscallmap[1024])(int) = { };
 
 struct trace *wait_for_syscall(void)
 {
@@ -177,10 +178,8 @@ int do_trace()
 
 			fprintf(stderr, "[%d]: %s entry\n", tracee->id, syscall_names[tracee->sysnum]);
 			tracee->syscall = NULL;
-	//		try { tracee->syscall = syscallmap[tracee->sysnum](pid); } catch (std::bad_function_call e) {}
-
-			if(tracee->syscall) {
-				tracee->syscall->frompid = tracee->pid;
+			if(syscallmap[tracee->sysnum]) {
+				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid);
 				tracee->syscall->start();
 			}
 		} else {
@@ -200,8 +199,13 @@ int do_trace()
 	return 0;
 }
 
+#define SETSYS(s) syscallmap[SYS_ ## s] = make<Sys ## s>
+
 int main(int argc, char **argv)
 {
+	SETSYS(recvfrom);
+	SETSYS(read);
+
 	static int _id = 0;
 	for(int i=1;i<argc;i++) {
 		fprintf(stderr, "starting %s\n", argv[i]);
