@@ -84,6 +84,15 @@ class Syscall {
 		}
 };
 
+class Sysclose : public Syscall {
+	public:
+		Sysclose(int p) : Syscall(p) {}
+		void start() {
+			int fd = params[0];
+			sock_close(frompid, fd);
+		}
+};
+
 class Sysaccept : public Syscall {
 	public:
 		struct sockaddr addr;

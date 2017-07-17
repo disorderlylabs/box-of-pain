@@ -15,4 +15,5 @@ struct socket {
 struct socket *sock_lookup(int pid, int sock);
 void sock_assoc(int pid, int sock, std::string name, struct sockaddr *addr, socklen_t addrlen);
 std::string sock_name(struct socket *s);
+void sock_close(int pid, int sock);
 
