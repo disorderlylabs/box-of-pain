@@ -11,7 +11,11 @@
 #include <functional>
 #include <sys/socket.h>
 
+#include "helper.h"
+#include "sockets.h"
 #include "scnames.h"
+
+#define LOG_SYSCALLS 0
 
 class Syscall;
 struct trace {
@@ -25,6 +29,18 @@ struct trace {
 
 int num_traces=0;
 struct trace *traces = NULL;
+
+struct trace *find_tracee(int pid)
+{
+	struct trace *tracee = NULL;
+	for(int i=0;i<num_traces;i++) {
+		if(pid == traces[i].pid) {
+			tracee = &traces[i];
+			break;
+		}
+	}
+	return tracee;
+}
 
 #define MAX_PARAMS 6 /* linux has 6 register parameters */
 
@@ -68,11 +84,65 @@ class Syscall {
 		}
 };
 
+class Sysaccept : public Syscall {
+	public:
+		struct sockaddr addr;
+		socklen_t len;
+		Sysaccept(int p) : Syscall(p) {}
+		void start() { }
+		void finish() {
+			int sock = retval;
+			len = GET(socklen_t, frompid, params[2]);
+			GETOBJ(frompid, params[1], &addr);
+			sock_assoc(frompid, sock, "", &addr, len);
+		}
+};
+
+class Sysconnect : public Syscall {
+	public:
+		struct sockaddr addr;
+		socklen_t len;
+		Sysconnect(int p) : Syscall(p) {}
+		void start() {
+			int sock = params[0];
+			GETOBJ(frompid, params[1], &addr);
+			len = params[2];
+			sock_assoc(frompid, sock, "", &addr, len);
+		} 
+		void finish() { }
+};
+
+class Syswrite : public Syscall {
+	public:
+		struct socket *socket = NULL;
+		Syswrite(int p) : Syscall(p) {}
+		void start() { 
+			socket = sock_lookup(frompid, params[0]);
+			if(!socket) {
+				return;
+			}
+			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+		} 
+		void finish() { }
+};
+
 class Sysread : public Syscall {
 	public:
+		struct socket *socket;
 		Sysread(int fpid) : Syscall(fpid) {}
-		void start() {}
-		void finish() {}
+		void start() {
+			socket = sock_lookup(frompid, params[0]);
+			if(!socket) {
+				return;
+			}
+			fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+		}
+		void finish() {
+			if(!socket) {
+				return;
+			}
+			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+		}
 };
 
 class Sysrecvfrom : public Syscall {
@@ -120,14 +190,7 @@ struct trace *wait_for_syscall(void)
 			return NULL;
 		}
 
-		struct trace *tracee = NULL;
-		for(int i=0;i<num_traces;i++) {
-			if(pid == traces[i].pid) {
-				tracee = &traces[i];
-				break;
-			}
-		}
-
+		struct trace *tracee = find_tracee(pid);
 		if(tracee == NULL) {
 			fprintf(stderr, "waitpid returned untraced process %d!\n", pid);
 			exit(1);
@@ -176,7 +239,9 @@ int do_trace()
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 
+#if LOG_SYSCALLS
 			fprintf(stderr, "[%d]: %s entry\n", tracee->id, syscall_names[tracee->sysnum]);
+#endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid);
@@ -185,7 +250,9 @@ int do_trace()
 		} else {
 			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
 			if(errno != 0) break;
+#if LOG_SYSCALLS
 			fprintf(stderr, "[%d]: %s exit -> %d\n", tracee->id, syscall_names[tracee->sysnum], retval);
+#endif
 			if(tracee->syscall) {
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
@@ -205,6 +272,9 @@ int main(int argc, char **argv)
 {
 	SETSYS(recvfrom);
 	SETSYS(read);
+	SETSYS(write);
+	SETSYS(accept);
+	SETSYS(connect);
 
 	static int _id = 0;
 	for(int i=1;i<argc;i++) {
