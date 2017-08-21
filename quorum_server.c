@@ -24,20 +24,31 @@ int main()
 	listen(sockfd, 4);
 
 	socklen_t clientlen = sizeof(clientaddr);
-	int client = accept(sockfd, (struct sockaddr *)&clientaddr, &clientlen);
-	if(client == -1) {
-		perror("accept");
-		exit(1);
-	}
 
-	char buf[128];
-	memset(buf, 0, 128);
-	read(client, buf, 128);
-	fprintf(stderr, "Client wrote %s\n", buf);
+    int votes = 0;
+    while (votes < 3) {
+	    int client = accept(sockfd, (struct sockaddr *)&clientaddr, &clientlen);
+	    if(client == -1) {
+		    perror("accept");
+		    exit(1);
+	    }
 
-	const char *msg = "Hello yourself!\n";
-	write(client, msg, strlen(msg));
-	close(client);
+	    char buf[128];
+	    memset(buf, 0, 128);
+	    read(client, buf, 128);
+        char *ip = inet_ntoa(clientaddr.sin_addr);
+        short port = clientaddr.sin_port;
+	    fprintf(stderr, "Client %s:%hu wrote %s\n", ip, port, buf);
+
+        if (strcmp(buf, "Hello, Server!\n") == 0) {
+            votes++;
+        }
+	    const char *msg = "Hello yourself!\n";
+	    write(client, msg, strlen(msg));
+	    close(client);
+
+    }
+    printf("Success!\n");
 	close(sockfd);
 	return 0;
 }
