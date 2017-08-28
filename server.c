@@ -36,7 +36,15 @@ int main()
 	fprintf(stderr, "Client wrote %s\n", buf);
 
 	const char *msg = "Hello yourself!\n";
-	write(client, msg, strlen(msg));
+	if(write(client, msg, strlen(msg)) <= 0) {
+		fprintf(stderr, "DETECTED FAILURE TO WRITE TO SOCKET\n");
+	}
+
+	msg = "Another message from server\n";
+	if(write(client, msg, strlen(msg)) <= 0) {
+		fprintf(stderr, "DETECTED FAILURE TO WRITE TO SOCKET\n");
+	}
+
 	close(client);
 	close(sockfd);
 	return 0;
