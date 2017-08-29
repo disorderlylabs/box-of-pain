@@ -20,6 +20,7 @@
 class Syscall;
 struct trace {
 	int pid;
+	int ecode;
 	int id;
 	int status;
 	long sysnum;
@@ -59,12 +60,18 @@ enum syscall_state {
 	STATE_DONE,
 };
 
+int set_syscall_param(int pid, int reg, long value)
+{
+	return ptrace(PTRACE_POKEUSER, pid, sizeof(long)*reg, value);
+}
+
 class Syscall {
 	public:
 		int frompid;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
 		unsigned long retval;
+		bool ret_success = false;
 		enum syscall_state state;
 
 		Syscall(int fpid) {
@@ -76,7 +83,11 @@ class Syscall {
 			}
 		}
 
-		virtual void finish() { }
+		virtual void finish() {
+			if(ret_success) {
+				set_syscall_param(frompid, RAX, 0);
+			}
+		}
 		virtual void start() { }
 
 		virtual bool operator ==(const Syscall &other) const {
@@ -130,9 +141,23 @@ class Syswrite : public Syscall {
 			if(!socket) {
 				return;
 			}
-			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
+					find_tracee(frompid)->id, sock_name(socket).c_str());
+			if(find_tracee(frompid)->id == 0) {
+				static int _t = 0;
+				if(_t != 1) {
+					_t = 1;
+				} else if(1){
+					set_syscall_param(frompid, RDI, -1);
+					ret_success = true;
+				}
+			}
 		} 
-		void finish() { }
+		void finish() {
+			if(ret_success) {
+				set_syscall_param(frompid, RAX, params[2]);
+			}
+		}
 };
 
 class Sysread : public Syscall {
@@ -144,13 +169,15 @@ class Sysread : public Syscall {
 			if(!socket) {
 				return;
 			}
-			fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+			fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n",
+					find_tracee(frompid)->id, sock_name(socket).c_str());
 		}
 		void finish() {
 			if(!socket) {
 				return;
 			}
-			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n", find_tracee(frompid)->id, sock_name(socket).c_str());
+			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n",
+					find_tracee(frompid)->id, sock_name(socket).c_str());
 		}
 };
 
@@ -211,6 +238,7 @@ struct trace *wait_for_syscall(void)
 		}
 		if(WIFEXITED(status)) {
 			tracee->exited = true;
+			tracee->ecode = WEXITSTATUS(status);
 			return tracee;
 		}
 		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
@@ -239,7 +267,7 @@ int do_trace()
 
 		if(tracee->exited) {
 			num_exited++;
-			fprintf(stderr, "PID %d exited\n", tracee->pid);
+			fprintf(stderr, "PID %d exited (%d)\n", tracee->pid, tracee->ecode);
 			if(num_exited == num_traces) break;
 			continue;
 		}
@@ -306,5 +334,11 @@ int main(int argc, char **argv)
 		traces[num_traces-1].exited = false;
 	}
 	do_trace();
+	for(int i=0;i<num_traces;i++) {
+		if(traces[i].ecode != 0) {
+			fprintf(stderr, "Tracee %d exited non-zero exit code\n", traces[i].id);
+		}
+	}
+	return 0;
 }
 

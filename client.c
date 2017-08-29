@@ -28,9 +28,15 @@ int main()
 
 	char buf[128];
 	memset(buf, 0, 128);
-	read(sockfd, buf, 128);
+	read(sockfd, buf, 20);
 
-	fprintf(stderr, "Reply: %s\n", buf);
+	fprintf(stderr, "Reply: %s\nLooking for second message...\n", buf);
+
+	if(read(sockfd, buf, 128) <= 0) {
+		fprintf(stderr, "Second message not found!\n");
+		return 1;
+	}
+	fprintf(stderr, "Found it!\n");
 	close(sockfd);
 	return 0;
 }
