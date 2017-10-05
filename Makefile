@@ -8,7 +8,10 @@ SOURCES=painbox.cpp helper.cpp socket.cpp
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-all: painbox client server
+EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender
+EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
+
+all: painbox $(EXAMPLES)
 
 painbox: $(OBJECTS)
 	$(CXX) -o painbox $(OBJECTS) -lstdc++
@@ -16,11 +19,10 @@ painbox: $(OBJECTS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
-client: client.c
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $< -MD
 
-server: server.c
-
--include $(DEPS)
+-include $(DEPS) $(EXAMPLES_SRC:.c=.d)
 
 clean:
 	-rm -f $(OBJECTS) $(DEPS) painbox client server
