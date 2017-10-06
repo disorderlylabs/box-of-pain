@@ -144,7 +144,7 @@ class Sysconnect : public Syscall {
 
 class Syswrite : public Syscall {
 	public:
-		struct socket *socket = NULL;
+		class sock *socket = NULL;
 		Syswrite(int p, long n) : Syscall(p, n) {}
 		void start() { 
 			socket = sock_lookup(frompid, params[0]);
@@ -174,7 +174,7 @@ class Syswrite : public Syscall {
 
 class Sysread : public Syscall {
 	public:
-		struct socket *socket;
+		class sock *socket;
 		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void start() {
 			socket = sock_lookup(frompid, params[0]);
