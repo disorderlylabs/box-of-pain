@@ -17,7 +17,12 @@
 
 #define LOG_SYSCALLS 0
 
+struct options {
+	bool dump;
+} options = {.dump = false};
+
 class Syscall;
+class event;
 struct trace {
 	int pid;
 	int ecode;
@@ -26,21 +31,26 @@ struct trace {
 	long sysnum;
 	Syscall *syscall;
 	bool exited;
+	std::vector<event *> event_seq;
+	char *invoke;
 };
 
-int num_traces=0;
-struct trace *traces = NULL;
+class event {
+	public:
+	Syscall *sc;
+	bool entry;
+	event(Syscall *s, bool e) : sc(s), entry(e) {}
+};
+
+std::vector<struct trace *> traces;
 
 struct trace *find_tracee(int pid)
 {
-	struct trace *tracee = NULL;
-	for(int i=0;i<num_traces;i++) {
-		if(pid == traces[i].pid) {
-			tracee = &traces[i];
-			break;
-		}
+	for(auto t : traces) {
+		if(t->pid == pid)
+			return t;
 	}
-	return tracee;
+	return NULL;
 }
 
 #define MAX_PARAMS 6 /* linux has 6 register parameters */
@@ -143,6 +153,7 @@ class Syswrite : public Syscall {
 			}
 			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
 					find_tracee(frompid)->id, sock_name(socket).c_str());
+#if 0
 			if(find_tracee(frompid)->id == 0) {
 				static int _t = 0;
 				if(_t != 1) {
@@ -152,6 +163,7 @@ class Syswrite : public Syscall {
 					ret_success = true;
 				}
 			}
+#endif
 		} 
 		void finish() {
 			if(ret_success) {
@@ -247,20 +259,20 @@ struct trace *wait_for_syscall(void)
 
 int do_trace()
 {
-	for(int i=0;i<num_traces;i++) {
-		fprintf(stderr, "init trace on %d\n", traces[i].pid);
+	for(auto tr : traces) {
+		fprintf(stderr, "init trace on %d\n", tr->pid);
 		int status;
-		traces[i].sysnum = -1;
-    	if(waitpid(traces[i].pid, &status, 0) == -1) {
+		tr->sysnum = -1;
+    	if(waitpid(tr->pid, &status, 0) == -1) {
 			perror("waitpid");
 		}
-		ptrace(PTRACE_SETOPTIONS, traces[i].pid, 0, PTRACE_O_TRACESYSGOOD);
+		ptrace(PTRACE_SETOPTIONS, tr->pid, 0, PTRACE_O_TRACESYSGOOD);
 		if(errno != 0) { perror("ptrace SETOPTIONS"); }
-		ptrace(PTRACE_SYSCALL, traces[i].pid, 0, 0);
+		ptrace(PTRACE_SYSCALL, tr->pid, 0, 0);
 		if(errno != 0) { perror("ptrace SYSCALL"); }
 	}
 
-	int num_exited = 0;
+	unsigned num_exited = 0;
 	while(true) {
 		struct trace *tracee;
 		if((tracee=wait_for_syscall()) == NULL) break;
@@ -268,7 +280,7 @@ int do_trace()
 		if(tracee->exited) {
 			num_exited++;
 			fprintf(stderr, "PID %d exited (%d)\n", tracee->pid, tracee->ecode);
-			if(num_exited == num_traces) break;
+			if(num_exited == traces.size()) break;
 			continue;
 		}
 
@@ -283,6 +295,7 @@ int do_trace()
 			if(syscallmap[tracee->sysnum]) {
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid);
 				tracee->syscall->start();
+				tracee->event_seq.push_back(new event(tracee->syscall, true));
 			}
 		} else {
 			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
@@ -294,6 +307,7 @@ int do_trace()
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
 				tracee->syscall->finish();
+				tracee->event_seq.push_back(new event(tracee->syscall, false));
 			}
 			tracee->sysnum = -1;
 		}
@@ -303,8 +317,15 @@ int do_trace()
 	return 0;
 }
 
-#define SETSYS(s) syscallmap[SYS_ ## s] = make<Sys ## s>
+void usage(void)
+{
+	printf("usage: box-of-pain [-d] -e prog,arg1,arg2,... [-e prog,arg1,arg2,...]...\n");
+	printf("options:\n");
+	printf("   -e prog,arg1,...     : Trace program 'prog' with arguments arg1...\n");
+	printf("   -d                   : Dump tracing info\n");
+}
 
+#define SETSYS(s) syscallmap[SYS_ ## s] = make<Sys ## s>
 int main(int argc, char **argv)
 {
 	SETSYS(recvfrom);
@@ -313,30 +334,61 @@ int main(int argc, char **argv)
 	SETSYS(accept);
 	SETSYS(connect);
 
-	static int _id = 0;
-	for(int i=1;i<argc;i++) {
-		fprintf(stderr, "starting %s\n", argv[i]);
+	int r;
+	while((r = getopt(argc, argv, "e:dh")) != EOF) {
+		switch(r) {
+			case 'e': {
+				struct trace *tr = new trace();
+				tr->id = traces.size();
+				tr->sysnum = -1; //we're not in a syscall to start.
+				tr->syscall = NULL;
+				tr->exited = false;
+				tr->invoke = strdup(optarg);
+				traces.push_back(tr);
+					  } break;
+			case 'h':
+				usage();
+				return 0;
+			case 'd':
+				options.dump = true;
+				break;
+			default:
+				usage();
+				return 1;
+		}
+	}
+	
+	for(auto tr : traces) {
+		fprintf(stderr, "starting %s\n", tr->invoke);
+		char **args = (char **)calloc(2, sizeof(char *));
+		char *prog = strdup(strtok(tr->invoke, ","));
+		args[0] = prog;
+		char *tmp;
+		int ac = 1;
+		while((tmp = strtok(NULL, ","))) {
+			args = (char **)realloc(args, (ac+2) * sizeof(char *));
+			args[ac] = strdup(tmp);
+			args[ac+1] = NULL;
+			ac++;
+		}
+	//	for(char **t = args;*t;t++) {
+	//		printf(":: %s\n", *t);
+	//	}
 		int pid = fork();
 		if(pid == 0) {
 			ptrace(PTRACE_TRACEME);
 			kill(getpid(), SIGSTOP);
-			if(execlp(argv[i], argv[i], NULL) == -1) {
-				fprintf(stderr, "failed to execute %s\n", argv[i]);
+			if(execvp(prog, args) == -1) {
+				fprintf(stderr, "failed to execute %s\n", prog);
 			}
 			exit(255);
 		}
-		num_traces++;
-		traces = (trace *)realloc(traces, num_traces * sizeof(struct trace));
-		traces[num_traces-1].id = _id++;
-		traces[num_traces-1].pid = pid;
-		traces[num_traces-1].sysnum = -1; //we're not in a syscall to start.
-		traces[num_traces-1].syscall = NULL;
-		traces[num_traces-1].exited = false;
+		tr->pid = pid;
 	}
 	do_trace();
-	for(int i=0;i<num_traces;i++) {
-		if(traces[i].ecode != 0) {
-			fprintf(stderr, "Tracee %d exited non-zero exit code\n", traces[i].id);
+	for(auto tr : traces) {
+		if(tr->ecode != 0) {
+			fprintf(stderr, "Tracee %d exited non-zero exit code\n", tr->id);
 		}
 	}
 	return 0;
