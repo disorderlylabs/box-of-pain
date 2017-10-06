@@ -84,10 +84,10 @@ class Syscall {
 		bool ret_success = false;
 		enum syscall_state state;
 
-		Syscall(int fpid) {
+		Syscall(int fpid, long num) {
 			frompid = fpid;
 			state = STATE_CALLED;
-			number = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*ORIG_RAX);
+			number = num;
 			for(int i=0;i<MAX_PARAMS;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
 			}
@@ -107,7 +107,7 @@ class Syscall {
 
 class Sysclose : public Syscall {
 	public:
-		Sysclose(int p) : Syscall(p) {}
+		Sysclose(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int fd = params[0];
 			sock_close(frompid, fd);
@@ -118,7 +118,7 @@ class Sysaccept : public Syscall {
 	public:
 		struct sockaddr addr;
 		socklen_t len;
-		Sysaccept(int p) : Syscall(p) {}
+		Sysaccept(int p, long n) : Syscall(p, n) {}
 		void start() { }
 		void finish() {
 			int sock = retval;
@@ -132,7 +132,7 @@ class Sysconnect : public Syscall {
 	public:
 		struct sockaddr addr;
 		socklen_t len;
-		Sysconnect(int p) : Syscall(p) {}
+		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int sock = params[0];
 			GETOBJ(frompid, params[1], &addr);
@@ -145,7 +145,7 @@ class Sysconnect : public Syscall {
 class Syswrite : public Syscall {
 	public:
 		struct socket *socket = NULL;
-		Syswrite(int p) : Syscall(p) {}
+		Syswrite(int p, long n) : Syscall(p, n) {}
 		void start() { 
 			socket = sock_lookup(frompid, params[0]);
 			if(!socket) {
@@ -175,7 +175,7 @@ class Syswrite : public Syscall {
 class Sysread : public Syscall {
 	public:
 		struct socket *socket;
-		Sysread(int fpid) : Syscall(fpid) {}
+		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void start() {
 			socket = sock_lookup(frompid, params[0]);
 			if(!socket) {
@@ -202,7 +202,7 @@ class Sysrecvfrom : public Syscall {
 		struct sockaddr *addr;
 		socklen_t *addrlen;
 
-		Sysrecvfrom(int fpid) : Syscall(fpid) {}
+		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
 
 		void start() {
 			socket = params[0];
@@ -225,9 +225,9 @@ class Sysrecvfrom : public Syscall {
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
  * use. */
 template <typename T>
-Syscall * make(int fpid) { return new T(fpid); }
+Syscall * make(int fpid, long n) { return new T(fpid, n); }
 
-Syscall * (*syscallmap[1024])(int) = { };
+Syscall * (*syscallmap[1024])(int, long) = { };
 
 struct trace *wait_for_syscall(void)
 {
@@ -279,7 +279,7 @@ int do_trace()
 
 		if(tracee->exited) {
 			num_exited++;
-			fprintf(stderr, "PID %d exited (%d)\n", tracee->pid, tracee->ecode);
+			fprintf(stderr, "Exit %d (pid %d) exited: %d\n", tracee->id, tracee->pid, tracee->ecode);
 			if(num_exited == traces.size()) break;
 			continue;
 		}
@@ -293,7 +293,7 @@ int do_trace()
 #endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
-				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid);
+				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid, tracee->sysnum);
 				tracee->syscall->start();
 				tracee->event_seq.push_back(new event(tracee->syscall, true));
 			}
@@ -337,7 +337,8 @@ int main(int argc, char **argv)
 	int r;
 	while((r = getopt(argc, argv, "e:dh")) != EOF) {
 		switch(r) {
-			case 'e': {
+			case 'e':
+			{
 				struct trace *tr = new trace();
 				tr->id = traces.size();
 				tr->sysnum = -1; //we're not in a syscall to start.
@@ -345,7 +346,7 @@ int main(int argc, char **argv)
 				tr->exited = false;
 				tr->invoke = strdup(optarg);
 				traces.push_back(tr);
-					  } break;
+			} break;
 			case 'h':
 				usage();
 				return 0;
@@ -359,7 +360,6 @@ int main(int argc, char **argv)
 	}
 	
 	for(auto tr : traces) {
-		fprintf(stderr, "starting %s\n", tr->invoke);
 		char **args = (char **)calloc(2, sizeof(char *));
 		char *prog = strdup(strtok(tr->invoke, ","));
 		args[0] = prog;
@@ -371,9 +371,6 @@ int main(int argc, char **argv)
 			args[ac+1] = NULL;
 			ac++;
 		}
-	//	for(char **t = args;*t;t++) {
-	//		printf(":: %s\n", *t);
-	//	}
 		int pid = fork();
 		if(pid == 0) {
 			ptrace(PTRACE_TRACEME);
@@ -384,11 +381,23 @@ int main(int argc, char **argv)
 			exit(255);
 		}
 		tr->pid = pid;
+		fprintf(stderr, "Tracee %d: starting %s (pid %d)\n", tr->id, tr->invoke, tr->pid);
 	}
 	do_trace();
 	for(auto tr : traces) {
 		if(tr->ecode != 0) {
 			fprintf(stderr, "Tracee %d exited non-zero exit code\n", tr->id);
+		}
+	}
+
+	if(options.dump) {
+		for(auto tr : traces) {
+			printf("%s ::= ", tr->invoke);
+			for(auto e : tr->event_seq) {
+				if(e->entry)
+				printf("<%s> -> ", syscall_names[e->sc->number]);
+			}
+			printf("::%d\n", tr->ecode);
 		}
 	}
 	return 0;
