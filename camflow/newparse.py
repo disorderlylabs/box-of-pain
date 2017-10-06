@@ -9,12 +9,14 @@ dot = Dot(graph_type='digraph',fontname="Verdana")
 data = json.loads(open(file).read())
 
 
-
 entities = data["entity"]
-derived = data["wasDerivedFrom"]
-generated = data["wasGeneratedBy"]
+if "wasDerivedFrom" in data:
+    derived = data["wasDerivedFrom"]
+if "wasGeneratedBy" in data:
+    generated = data["wasGeneratedBy"]
 activities = data["activity"]
-informs = data["wasInformedBy"]
+if "wasInformedBy" in data:
+    informs = data["wasInformedBy"]
 uses = data["used"]
 
 
@@ -63,7 +65,7 @@ def neo_ready(json):
 
 def clern(jsn):
     ret = jsn
-    for t in [",", "-", ">", "[", "]", ".", ":", " ", ")", "(", "/"]:
+    for t in [",", "-", ">", "[", "]", ".", ":", " ", ")", "(", "/", ';', '%', '*', '}', '{', '$', '~', '`', '!', '@', '#', '^', '&', '*', '?', '=', '\\', '"', '|']:
         ret = ret.replace(t, "_")
     return ret
 
@@ -78,19 +80,19 @@ def label(entity, json):
 
 mapping = Mapping()
 
-
 for entity in entities.keys():
     print "CREATE (" + entitystr(entity, mapping) + ": " + label(entity, entities[entity]) + " "  + neo_ready(entities[entity]) + ")"
 
 for activity in activities.keys():
     print "CREATE (" + entitystr(activity, mapping) + ": " + label(activity, activities[activity]) + " "  + neo_ready(activities[activity]) + ")"
 
-for entity in derived.keys():
-    print "CREATE (" + entitystr(derived[entity]["prov:usedEntity"], mapping) +") -[" + entitystr(entity, mapping) + ": Derived " + neo_ready(derived[entity]) + "]-> (" + entitystr(derived[entity]["prov:generatedEntity"], mapping) + ")" 
+if "wasDerivedFrom" in data:
+    for entity in derived.keys():
+        print "CREATE (" + entitystr(derived[entity]["prov:usedEntity"], mapping) +") -[" + entitystr(entity, mapping) + ": Derived " + neo_ready(derived[entity]) + "]-> (" + entitystr(derived[entity]["prov:generatedEntity"], mapping) + ")" 
 
-
-for entity in generated.keys():
-    print "CREATE (" + entitystr(generated[entity]["prov:activity"], mapping) +") -[" + entitystr(entity, mapping) + ": Generated " + neo_ready(generated[entity]) + "]-> (" + entitystr(generated[entity]["prov:entity"], mapping) + ")" 
+if "wasGeneratedBy" in data:
+    for entity in generated.keys():
+        print "CREATE (" + entitystr(generated[entity]["prov:activity"], mapping) +") -[" + entitystr(entity, mapping) + ": Generated " + neo_ready(generated[entity]) + "]-> (" + entitystr(generated[entity]["prov:entity"], mapping) + ")" 
 
 for entity in uses.keys():
     print "CREATE (" + entitystr(uses[entity]["prov:activity"], mapping) +") -[" + entitystr(entity, mapping) + ": Uses " + neo_ready(uses[entity]) + "]-> (" + entitystr(uses[entity]["prov:entity"], mapping) + ")" 

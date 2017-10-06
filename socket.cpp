@@ -10,23 +10,16 @@
 
 static std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
 
-#if 0
-void sock_register(int pid, int sock)
-{
-	sockets[pid][sock].frompid = pid;
-	sockets[pid][sock].sockfd = sock;
-	sockets[pid][sock].flags = 0;
-}
-#endif
-
 void sock_close(int pid, int sock)
 {
 	sockets[pid][sock] = NULL;
 }
 
-void sock_assoc(int pid, int _sock, std::string name, struct sockaddr *addr, socklen_t addrlen)
+class sock *sock_assoc(int pid, int _sock, std::string name, struct sockaddr *addr, socklen_t addrlen)
 {
+	static long __id = 0;
 	class sock *s = new sock;
+	s->uuid = __id++;
 	s->name = name;
 	s->addr = *addr;
 	s->addrlen = addrlen;
@@ -35,6 +28,7 @@ void sock_assoc(int pid, int _sock, std::string name, struct sockaddr *addr, soc
 	s->frompid = pid;
 	sockets[pid][_sock] = s;
 	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", pid, _sock, sock_name(sockets[pid][_sock]).c_str());
+	return s;
 }
 
 class sock *sock_lookup(int pid, int sock)
@@ -54,6 +48,10 @@ std::string sock_name(class sock *s)
 	}
 	struct sockaddr_in *in = (struct sockaddr_in *)(&s->addr);
 	std::string ret = std::to_string(s->frompid);
+	ret += "::";
+	ret += std::to_string(s->sockfd);
+	ret += "::";
+	ret += std::to_string(s->uuid);
 	ret += "::";
 	ret += inet_ntoa(in->sin_addr);
 	ret += ":";

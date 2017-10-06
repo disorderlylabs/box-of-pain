@@ -10,6 +10,7 @@
 #include <sys/syscall.h>
 #include <functional>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "helper.h"
 #include "sockets.h"
@@ -75,9 +76,12 @@ int set_syscall_param(int pid, int reg, long value)
 	return ptrace(PTRACE_POKEUSER, pid, sizeof(long)*reg, value);
 }
 
+
 class Syscall {
 	public:
+		class event *entry_event, *exit_event;
 		int frompid;
+		int uuid;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
 		unsigned long retval;
@@ -105,54 +109,84 @@ class Syscall {
 		}
 };
 
-class Sysclose : public Syscall {
+class sockop {
+	public:
+		class sock *sock;
+		class sock *get_socket() { return sock; }
+};
+
+std::vector<Syscall *> syscall_list;
+/* TODO: check for error return values. Nonblocking? */
+
+class Sysclose : public Syscall, public sockop {
 	public:
 		Sysclose(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int fd = params[0];
+			sock = sock_lookup(frompid, fd);
 			sock_close(frompid, fd);
 		}
 };
 
-class Sysaccept : public Syscall {
+class Sysbind : public Syscall, public sockop {
 	public:
 		struct sockaddr addr;
 		socklen_t len;
-		Sysaccept(int p, long n) : Syscall(p, n) {}
-		void start() { }
-		void finish() {
-			int sock = retval;
-			len = GET(socklen_t, frompid, params[2]);
+		Sysbind(int p, long n) : Syscall(p, n) {}
+		void start() {
+			int sockfd = params[0];
 			GETOBJ(frompid, params[1], &addr);
-			sock_assoc(frompid, sock, "", &addr, len);
+			len = params[2];
+			sock = sock_assoc(frompid, sockfd, "", &addr, len);
+		};
+};
+
+class Sysaccept : public Syscall, public sockop {
+	public:
+		class Sysconnect *pair;
+		struct sock *serversock = NULL;
+		struct sockaddr addr;
+		socklen_t len;
+		Sysaccept(int p, long n) : Syscall(p, n) {}
+		void start() {
+			int fd = params[0];
+			serversock = sock_lookup(frompid, fd);
+		}
+		void finish() {
+			int sockfd = retval;
+			if(sockfd >= 0) {
+				len = GET(socklen_t, frompid, params[2]);
+				GETOBJ(frompid, params[1], &addr);
+				sock = sock_assoc(frompid, sockfd, "", &addr, len);
+			}
 		}
 };
 
-class Sysconnect : public Syscall {
+class Sysconnect : public Syscall, public sockop {
 	public:
+		class Sysaccept *pair;
 		struct sockaddr addr;
 		socklen_t len;
 		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start() {
-			int sock = params[0];
+			int sockfd = params[0];
 			GETOBJ(frompid, params[1], &addr);
 			len = params[2];
-			sock_assoc(frompid, sock, "", &addr, len);
+			sock = sock_assoc(frompid, sockfd, "", &addr, len);
 		} 
 		void finish() { }
 };
 
-class Syswrite : public Syscall {
+class Syswrite : public Syscall, public sockop {
 	public:
-		class sock *socket = NULL;
 		Syswrite(int p, long n) : Syscall(p, n) {}
 		void start() { 
-			socket = sock_lookup(frompid, params[0]);
-			if(!socket) {
+			sock = sock_lookup(frompid, params[0]);
+			if(!sock) {
 				return;
 			}
 			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
-					find_tracee(frompid)->id, sock_name(socket).c_str());
+					find_tracee(frompid)->id, sock_name(sock).c_str());
 #if 0
 			if(find_tracee(frompid)->id == 0) {
 				static int _t = 0;
@@ -172,28 +206,27 @@ class Syswrite : public Syscall {
 		}
 };
 
-class Sysread : public Syscall {
+class Sysread : public Syscall, public sockop {
 	public:
-		class sock *socket;
 		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void start() {
-			socket = sock_lookup(frompid, params[0]);
-			if(!socket) {
+			sock = sock_lookup(frompid, params[0]);
+			if(!sock) {
 				return;
 			}
 			fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n",
-					find_tracee(frompid)->id, sock_name(socket).c_str());
+					find_tracee(frompid)->id, sock_name(sock).c_str());
 		}
 		void finish() {
-			if(!socket) {
+			if(!sock) {
 				return;
 			}
 			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n",
-					find_tracee(frompid)->id, sock_name(socket).c_str());
+					find_tracee(frompid)->id, sock_name(sock).c_str());
 		}
 };
 
-class Sysrecvfrom : public Syscall {
+class Sysrecvfrom : public Syscall, public sockop {
 	public:
 		int socket;
 		void *buffer;
@@ -295,7 +328,11 @@ int do_trace()
 			if(syscallmap[tracee->sysnum]) {
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid, tracee->sysnum);
 				tracee->syscall->start();
-				tracee->event_seq.push_back(new event(tracee->syscall, true));
+				class event *e = new event(tracee->syscall, true);
+				tracee->syscall->entry_event = e;
+				tracee->event_seq.push_back(e);
+				tracee->syscall->uuid = syscall_list.size();
+				syscall_list.push_back(tracee->syscall);
 			}
 		} else {
 			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
@@ -307,7 +344,9 @@ int do_trace()
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
 				tracee->syscall->finish();
-				tracee->event_seq.push_back(new event(tracee->syscall, false));
+				class event *e = new event(tracee->syscall, false);
+				tracee->syscall->exit_event = e;
+				tracee->event_seq.push_back(e);
 			}
 			tracee->sysnum = -1;
 		}
@@ -333,6 +372,7 @@ int main(int argc, char **argv)
 	SETSYS(write);
 	SETSYS(accept);
 	SETSYS(connect);
+	SETSYS(bind);
 
 	int r;
 	while((r = getopt(argc, argv, "e:dh")) != EOF) {
@@ -391,14 +431,73 @@ int main(int argc, char **argv)
 	}
 
 	if(options.dump) {
+		int uid = 0;
+		FILE *dotout = fopen("out.m4", "w");
+		FILE *dotdefs = fopen("out.inc", "w");
+		fprintf(dotout, "digraph trace {\ninclude(`out.inc')\n");
+	//	fprintf(dotdefs, "3 [label=\"FOO\"];\n");
 		for(auto tr : traces) {
-			printf("%s ::= ", tr->invoke);
+			printf("Trace of %s\n", tr->invoke);
+			fprintf(dotout, "start%d -> ", tr->id);
+			fprintf(dotdefs, "start%d [label=\"%s\"];\n", tr->id, tr->invoke);
 			for(auto e : tr->event_seq) {
-				if(e->entry)
-				printf("<%s> -> ", syscall_names[e->sc->number]);
+				fprintf(dotout, "%c%d -> ", e->entry ? 'e' : 'x', e->sc->uuid);
+				fprintf(dotdefs, "%c%d [label=\"%d:%s:%s\"];\n",
+						e->entry ? 'e' : 'x', e->sc->uuid, tr->id, e->entry ? "entry" : "exit", syscall_names[e->sc->number]);
+				printf(" %s <%s> ",e->entry ? "entry" : "exit ", syscall_names[e->sc->number]);
+				auto so = dynamic_cast<class sockop*>(e->sc);
+				auto scaccept = dynamic_cast<class Sysaccept*>(e->sc);
+				if(scaccept && e->entry /* only do this once */) {
+					class sock *c = scaccept->get_socket();
+					class sock *s = scaccept->serversock;
+					if(c && s) {
+						printf(":: %s -> %s\n", sock_name(s).c_str(),
+								sock_name(c).c_str());
+					}
+
+					for(auto sys : syscall_list) {
+						auto scconn = dynamic_cast<class Sysconnect *>(sys);
+						if(scconn != nullptr) {
+							/* TODO: we should look for and track connections
+							 * as they happen */
+							struct sock *cl_sock = scconn->get_socket();
+							if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
+								cl_sock->conn_pair = c;
+								c->conn_pair = cl_sock;
+								struct sockaddr_in *in_server_lis
+									= (struct sockaddr_in *)&s->addr;
+								struct sockaddr_in *in_server_cli
+									= (struct sockaddr_in *)&c->addr;
+								struct sockaddr_in *in_client_soc
+									= (struct sockaddr_in *)&cl_sock->addr;
+
+									if(in_client_soc->sin_port == in_server_lis->sin_port
+											&& !memcmp(&in_client_soc->sin_addr,
+												       &in_server_cli->sin_addr,
+													   sizeof(in_server_cli->sin_addr))) {
+										scaccept->pair = scconn;
+										scconn->pair = scaccept;
+										fprintf(dotdefs, "e%d -> x%d\n", scconn->uuid, scaccept->uuid);
+										fprintf(dotdefs, "e%d -> x%d\n", scaccept->uuid, scconn->uuid);
+									}
+								}
+							}
+						}
+					} else if (so != nullptr) {
+						class sock *s = so->get_socket();
+						if(s) {
+							printf(":: %s\n", sock_name(s).c_str());
+						}
+					}
+					printf("\n");
 			}
-			printf("::%d\n", tr->ecode);
+			fprintf(dotout, "exit%d;\n", tr->id);
+			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\"];\n", tr->id, tr->ecode);
+			printf(" Exited with %d\n", tr->ecode);
 		}
+		fprintf(dotout, "\n}\n");
+		fclose(dotdefs);
+		fclose(dotout);
 	}
 	return 0;
 }

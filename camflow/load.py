@@ -11,5 +11,7 @@ driver = GraphDatabase.driver(URI, auth=(USERNAME, PASSWORD))
 with driver.session() as session:
     with session.begin_transaction() as tx:
         tx.run("match (n) detach delete n")
-        s = open(INPUTGRAPH, 'r').read()
-        tx.run(s)
+        f=open(INPUTGRAPH, 'r')
+        for line in f:
+            print line
+            tx.run(line)
