@@ -453,28 +453,26 @@ int main(int argc, char **argv)
 					if(c && s) {
 						printf(":: %s -> %s\n", sock_name(s).c_str(),
 								sock_name(c).c_str());
-					}
-
-					for(auto sys : syscall_list) {
-						auto scconn = dynamic_cast<class Sysconnect *>(sys);
-						if(scconn != nullptr) {
-							/* TODO: we should look for and track connections
-							 * as they happen */
-							struct sock *cl_sock = scconn->get_socket();
-							if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
-								cl_sock->conn_pair = c;
-								c->conn_pair = cl_sock;
-								struct sockaddr_in *in_server_lis
-									= (struct sockaddr_in *)&s->addr;
-								struct sockaddr_in *in_server_cli
-									= (struct sockaddr_in *)&c->addr;
-								struct sockaddr_in *in_client_soc
-									= (struct sockaddr_in *)&cl_sock->addr;
+						for(auto sys : syscall_list) {
+							auto scconn = dynamic_cast<class Sysconnect *>(sys);
+							if(scconn != nullptr) {
+								/* TODO: we should look for and track connections
+								 * as they happen */
+								struct sock *cl_sock = scconn->get_socket();
+								if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
+									cl_sock->conn_pair = c;
+									c->conn_pair = cl_sock;
+									struct sockaddr_in *in_server_lis
+										= (struct sockaddr_in *)&s->addr;
+									struct sockaddr_in *in_server_cli
+										= (struct sockaddr_in *)&c->addr;
+									struct sockaddr_in *in_client_soc
+										= (struct sockaddr_in *)&cl_sock->addr;
 
 									if(in_client_soc->sin_port == in_server_lis->sin_port
 											&& !memcmp(&in_client_soc->sin_addr,
-												       &in_server_cli->sin_addr,
-													   sizeof(in_server_cli->sin_addr))) {
+												&in_server_cli->sin_addr,
+												sizeof(in_server_cli->sin_addr))) {
 										scaccept->pair = scconn;
 										scconn->pair = scaccept;
 										fprintf(dotdefs, "e%d -> x%d\n", scconn->uuid, scaccept->uuid);
@@ -483,13 +481,14 @@ int main(int argc, char **argv)
 								}
 							}
 						}
-					} else if (so != nullptr) {
-						class sock *s = so->get_socket();
-						if(s) {
-							printf(":: %s\n", sock_name(s).c_str());
-						}
 					}
-					printf("\n");
+				} else if (so != nullptr) {
+					class sock *s = so->get_socket();
+					if(s) {
+						printf(":: %s\n", sock_name(s).c_str());
+					}
+				}
+				printf("\n");
 			}
 			fprintf(dotout, "exit%d;\n", tr->id);
 			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\"];\n", tr->id, tr->ecode);
