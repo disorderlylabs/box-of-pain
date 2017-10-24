@@ -40,6 +40,7 @@ class event {
 	public:
 	Syscall *sc;
 	bool entry;
+	std::vector<event *> extra_parents;
 	event(Syscall *s, bool e) : sc(s), entry(e) {}
 };
 
@@ -107,6 +108,8 @@ class Syscall {
 		virtual bool operator ==(const Syscall &other) const {
 			return number == other.number;
 		}
+
+		virtual bool post_process(int pass) { return false; }
 };
 
 class sockop {
@@ -141,6 +144,21 @@ class Sysbind : public Syscall, public sockop {
 		};
 };
 
+class Sysconnect : public Syscall, public sockop {
+	public:
+		class Sysaccept *pair;
+		struct sockaddr addr;
+		socklen_t len;
+		Sysconnect(int p, long n) : Syscall(p, n) {}
+		void start() {
+			int sockfd = params[0];
+			GETOBJ(frompid, params[1], &addr);
+			len = params[2];
+			sock = sock_assoc(frompid, sockfd, "", &addr, len);
+		} 
+		void finish() { }
+};
+
 class Sysaccept : public Syscall, public sockop {
 	public:
 		class Sysconnect *pair;
@@ -160,21 +178,45 @@ class Sysaccept : public Syscall, public sockop {
 				sock = sock_assoc(frompid, sockfd, "", &addr, len);
 			}
 		}
-};
 
-class Sysconnect : public Syscall, public sockop {
-	public:
-		class Sysaccept *pair;
-		struct sockaddr addr;
-		socklen_t len;
-		Sysconnect(int p, long n) : Syscall(p, n) {}
-		void start() {
-			int sockfd = params[0];
-			GETOBJ(frompid, params[1], &addr);
-			len = params[2];
-			sock = sock_assoc(frompid, sockfd, "", &addr, len);
-		} 
-		void finish() { }
+		bool post_process(int pass) {
+			if(pass == 0) {
+				class sock *c = this->get_socket();
+				class sock *s = this->serversock;
+				if(c && s) {
+					for(auto sys : syscall_list) {
+						auto scconn = dynamic_cast<class Sysconnect *>(sys);
+						if(scconn != nullptr) {
+							/* TODO: we should look for and track connections
+							 * as they happen */
+							struct sock *cl_sock = scconn->get_socket();
+							if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
+								c->conn = cl_sock->conn = new connection(cl_sock, c);
+								struct sockaddr_in *in_server_lis
+									= (struct sockaddr_in *)&s->addr;
+								struct sockaddr_in *in_server_cli
+									= (struct sockaddr_in *)&c->addr;
+								struct sockaddr_in *in_client_soc
+									= (struct sockaddr_in *)&cl_sock->addr;
+
+								if(in_client_soc->sin_port == in_server_lis->sin_port
+										&& !memcmp(&in_client_soc->sin_addr,
+											&in_server_cli->sin_addr,
+											sizeof(in_server_cli->sin_addr))) {
+									this->pair = scconn;
+									scconn->pair = this;
+									scconn->exit_event->extra_parents.push_back(this->entry_event);
+									this->exit_event->extra_parents.push_back(scconn->entry_event);
+	//								fprintf(dotdefs, "e%d -> x%d\n", scconn->uuid, scaccept->uuid);
+	//								fprintf(dotdefs, "e%d -> x%d\n", scaccept->uuid, scconn->uuid);
+								}
+							}
+						}
+					}
+				}
+			}
+			return false;
+		}
 };
 
 class Syswrite : public Syscall, public sockop {
@@ -204,6 +246,18 @@ class Syswrite : public Syscall, public sockop {
 				set_syscall_param(frompid, RAX, params[2]);
 			}
 		}
+
+		bool post_process(int pass) {
+			if(pass == 0) {
+				return true;
+			} else if(pass == 1) {
+				class sock *s = get_socket();
+				if(s && s->conn && retval > 0) {
+					s->conn->write(s, this, retval);
+				}
+			}
+			return false;
+		}
 };
 
 class Sysread : public Syscall, public sockop {
@@ -223,6 +277,21 @@ class Sysread : public Syscall, public sockop {
 			}
 			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n",
 					find_tracee(frompid)->id, sock_name(sock).c_str());
+		}
+
+		bool post_process(int pass) {
+			if(pass < 2) {
+				return true;
+			} else if(pass == 2) {
+				class sock *s = get_socket();
+				if(s && s->conn && retval > 0) {
+					std::vector<Syscall *> rcs = s->conn->read(s, retval);
+					for(auto wsys : rcs) {
+						exit_event->extra_parents.push_back(wsys->entry_event);
+					}
+				}
+			}
+			return false;
 		}
 };
 
@@ -335,7 +404,7 @@ int do_trace()
 				syscall_list.push_back(tracee->syscall);
 			}
 		} else {
-			int retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
+			long retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
 			if(errno != 0) break;
 #if LOG_SYSCALLS
 			fprintf(stderr, "[%d]: %s exit -> %d\n", tracee->id, syscall_names[tracee->sysnum], retval);
@@ -430,12 +499,26 @@ int main(int argc, char **argv)
 		}
 	}
 
+	int pass = 0;
+	bool more = true;
+	while(more) {
+		fprintf(stderr, "post-processing pass %d\n", pass);
+		more = false;
+		for(auto tr : traces) {
+			for(auto e : tr->event_seq) {
+				if(e->entry) {
+					more = e->sc->post_process(pass) || more;
+				}
+			}
+		}
+		pass++;
+	}
+
 	if(options.dump) {
 		int uid = 0;
 		FILE *dotout = fopen("out.m4", "w");
 		FILE *dotdefs = fopen("out.inc", "w");
 		fprintf(dotout, "digraph trace {\ninclude(`out.inc')\n");
-	//	fprintf(dotdefs, "3 [label=\"FOO\"];\n");
 		for(auto tr : traces) {
 			printf("Trace of %s\n", tr->invoke);
 			fprintf(dotout, "start%d -> ", tr->id);
@@ -444,51 +527,12 @@ int main(int argc, char **argv)
 				fprintf(dotout, "%c%d -> ", e->entry ? 'e' : 'x', e->sc->uuid);
 				fprintf(dotdefs, "%c%d [label=\"%d:%s:%s\"];\n",
 						e->entry ? 'e' : 'x', e->sc->uuid, tr->id, e->entry ? "entry" : "exit", syscall_names[e->sc->number]);
-				printf(" %s <%s> ",e->entry ? "entry" : "exit ", syscall_names[e->sc->number]);
-				auto so = dynamic_cast<class sockop*>(e->sc);
-				auto scaccept = dynamic_cast<class Sysaccept*>(e->sc);
-				if(scaccept && e->entry /* only do this once */) {
-					class sock *c = scaccept->get_socket();
-					class sock *s = scaccept->serversock;
-					if(c && s) {
-						printf(":: %s -> %s\n", sock_name(s).c_str(),
-								sock_name(c).c_str());
-						for(auto sys : syscall_list) {
-							auto scconn = dynamic_cast<class Sysconnect *>(sys);
-							if(scconn != nullptr) {
-								/* TODO: we should look for and track connections
-								 * as they happen */
-								struct sock *cl_sock = scconn->get_socket();
-								if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
-									cl_sock->conn_pair = c;
-									c->conn_pair = cl_sock;
-									struct sockaddr_in *in_server_lis
-										= (struct sockaddr_in *)&s->addr;
-									struct sockaddr_in *in_server_cli
-										= (struct sockaddr_in *)&c->addr;
-									struct sockaddr_in *in_client_soc
-										= (struct sockaddr_in *)&cl_sock->addr;
 
-									if(in_client_soc->sin_port == in_server_lis->sin_port
-											&& !memcmp(&in_client_soc->sin_addr,
-												&in_server_cli->sin_addr,
-												sizeof(in_server_cli->sin_addr))) {
-										scaccept->pair = scconn;
-										scconn->pair = scaccept;
-										fprintf(dotdefs, "e%d -> x%d\n", scconn->uuid, scaccept->uuid);
-										fprintf(dotdefs, "e%d -> x%d\n", scaccept->uuid, scconn->uuid);
-									}
-								}
-							}
-						}
-					}
-				} else if (so != nullptr) {
-					class sock *s = so->get_socket();
-					if(s) {
-						printf(":: %s\n", sock_name(s).c_str());
-					}
+				for(auto p : e->extra_parents) {
+					fprintf(dotdefs, "%c%d -> %c%d;\n",
+							p->entry ? 'e' : 'x', p->sc->uuid,
+							e->entry ? 'e' : 'x', e->sc->uuid);
 				}
-				printf("\n");
 			}
 			fprintf(dotout, "exit%d;\n", tr->id);
 			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\"];\n", tr->id, tr->ecode);
