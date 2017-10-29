@@ -35,12 +35,8 @@ struct trace *find_tracee(int pid)
 	return NULL;
 }
 
-
-/* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
- * use. */
 template <typename T>
 Syscall * make(int fpid, long n) { return new T(fpid, n); }
-
 Syscall * (*syscallmap[1024])(int, long) = { };
 
 struct trace *wait_for_syscall(void)
@@ -97,6 +93,8 @@ int do_trace()
 			if(num_exited == traces.size()) break;
 			continue;
 		}
+
+		register_syscall_rip(tracee);
 
 		if(tracee->sysnum == -1) {
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*ORIG_RAX);
@@ -165,6 +163,7 @@ int main(int argc, char **argv)
 				struct trace *tr = new trace();
 				tr->id = traces.size();
 				tr->sysnum = -1; //we're not in a syscall to start.
+				tr->syscall_rip = 0;
 				tr->syscall = NULL;
 				tr->exited = false;
 				tr->invoke = strdup(optarg);
@@ -239,9 +238,16 @@ int main(int argc, char **argv)
 			fprintf(dotout, "start%d -> ", tr->id);
 			fprintf(dotdefs, "start%d [label=\"%s\"];\n", tr->id, tr->invoke);
 			for(auto e : tr->event_seq) {
+				std::string sockinfo = "";
+				if(auto sop = dynamic_cast<sockop *>(e->sc)) {
+					if(sop->get_socket())
+						sockinfo += "\n" + sock_name_short(sop->get_socket());
+				}
 				fprintf(dotout, "%c%d -> ", e->entry ? 'e' : 'x', e->sc->uuid);
-				fprintf(dotdefs, "%c%d [label=\"%d:%s:%s\"];\n",
-						e->entry ? 'e' : 'x', e->sc->uuid, tr->id, e->entry ? "entry" : "exit", syscall_names[e->sc->number]);
+				fprintf(dotdefs, "%c%d [label=\"%d:%s:%s%s\"];\n",
+						e->entry ? 'e' : 'x', e->sc->uuid, tr->id, e->entry ? "entry" : "exit",
+						syscall_names[e->sc->number],
+						sockinfo.c_str());
 
 				for(auto p : e->extra_parents) {
 					fprintf(dotdefs, "%c%d -> %c%d;\n",

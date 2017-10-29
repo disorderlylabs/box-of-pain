@@ -7,21 +7,22 @@ void Sysaccept::start() {
 	int fd = params[0];
 	serversock = sock_lookup(frompid, fd);
 }
+
 void Sysaccept::finish() {
 	int sockfd = retval;
 	if(sockfd >= 0) {
 		len = GET(socklen_t, frompid, params[2]);
 		GETOBJ(frompid, params[1], &addr);
-		sock = sock_assoc(frompid, sockfd, "", &addr, len);
+		sock = sock_assoc(frompid, sockfd, "");
+		sock_set_peer(sock, &addr, len);
 
+#if 0
 		class sock *c = this->get_socket();
 		class sock *s = this->serversock;
 		if(c && s) {
 			for(auto sys : syscall_list) {
 				auto scconn = dynamic_cast<class Sysconnect *>(sys);
 				if(scconn != nullptr) {
-					/* TODO: we should look for and track connections
-					 * as they happen */
 					struct sock *cl_sock = scconn->get_socket();
 					if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
 						c->conn = cl_sock->conn = new connection(cl_sock, c);
@@ -45,6 +46,7 @@ void Sysaccept::finish() {
 				}
 			}
 		}
-
+#endif
 	}
 }
+

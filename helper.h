@@ -5,6 +5,8 @@
 #include <stdexcept>
 std::string tracee_readstr(int child, unsigned long addr);
 void tracee_copydata(int child, unsigned long addr, char *buf, ssize_t len);
+void register_syscall_rip(struct trace *t);
+long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, long e, long f);
 
 #define GETOBJ(ch,addr,obj) \
 	tracee_copydata(ch,addr,(char *)obj,sizeof(obj))
