@@ -17,6 +17,8 @@ struct trace {
 	std::vector<event *> event_seq;
 	char *invoke;
 	uint64_t syscall_rip;
+	uintptr_t shared_page;
+	size_t sp_mark;
 	struct user_regs_struct uregs;
 };
 

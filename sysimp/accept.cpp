@@ -2,6 +2,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <cstring>
 void Sysaccept::start() {
 	int fd = params[0];
@@ -13,11 +14,12 @@ void Sysaccept::finish() {
 	if(sockfd >= 0) {
 		len = GET(socklen_t, frompid, params[2]);
 		GETOBJ(frompid, params[1], &addr);
-		sock = sock_assoc(frompid, sockfd, "");
+		sock = sock_assoc(frompid, sockfd);
 		sock_set_peer(sock, &addr, len);
-		int r = inject_syscall(tracee, SYS_getpid);
-		fprintf(stderr, "::::::::: %d\n", r);
 
+		sock_discover_addresses(sock);
+		sock->conn = conn_lookup(&sock->peer, sock->peerlen, &sock->addr, sock->addrlen, true);
+		sock->conn->set_accside(this, sock);
 #if 0
 		class sock *c = this->get_socket();
 		class sock *s = this->serversock;

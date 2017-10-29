@@ -168,6 +168,8 @@ int main(int argc, char **argv)
 				tr->id = traces.size();
 				tr->sysnum = -1; //we're not in a syscall to start.
 				tr->syscall_rip = -1;
+				tr->shared_page = 0;
+				tr->sp_mark = 0;
 				tr->syscall = NULL;
 				tr->exited = false;
 				tr->invoke = strdup(optarg);

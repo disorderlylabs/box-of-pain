@@ -104,7 +104,7 @@ class Sysbind : public Syscall, public sockop {
 			int sockfd = params[0];
 			GETOBJ(frompid, params[1], &addr);
 			len = params[2];
-			sock = sock_assoc(frompid, sockfd, "");
+			sock = sock_assoc(frompid, sockfd);
 			sock_set_addr(sock, &addr, len);
 		};
 };
