@@ -15,36 +15,16 @@
 #include "helper.h"
 #include "sockets.h"
 #include "scnames.h"
-
+#include "sys.h"
+#include "tracee.h"
 #define LOG_SYSCALLS 0
 
 struct options {
 	bool dump;
 } options = {.dump = false};
 
-class Syscall;
-class event;
-struct trace {
-	int pid;
-	int ecode;
-	int id;
-	int status;
-	long sysnum;
-	Syscall *syscall;
-	bool exited;
-	std::vector<event *> event_seq;
-	char *invoke;
-};
-
-class event {
-	public:
-	Syscall *sc;
-	bool entry;
-	std::vector<event *> extra_parents;
-	event(Syscall *s, bool e) : sc(s), entry(e) {}
-};
-
 std::vector<struct trace *> traces;
+std::vector<Syscall *> syscall_list;
 
 struct trace *find_tracee(int pid)
 {
@@ -55,274 +35,6 @@ struct trace *find_tracee(int pid)
 	return NULL;
 }
 
-#define MAX_PARAMS 6 /* linux has 6 register parameters */
-
-int param_map[MAX_PARAMS] = {
-	RDI,
-	RSI,
-	RDX,
-	R10,
-	R8,
-	R9
-};
-
-enum syscall_state {
-	STATE_UNCALLED,
-	STATE_CALLED,
-	STATE_DONE,
-};
-
-int set_syscall_param(int pid, int reg, long value)
-{
-	return ptrace(PTRACE_POKEUSER, pid, sizeof(long)*reg, value);
-}
-
-
-class Syscall {
-	public:
-		class event *entry_event, *exit_event;
-		int frompid;
-		int uuid;
-		unsigned long number;
-		unsigned long params[MAX_PARAMS];
-		unsigned long retval;
-		bool ret_success = false;
-		enum syscall_state state;
-
-		Syscall(int fpid, long num) {
-			frompid = fpid;
-			state = STATE_CALLED;
-			number = num;
-			for(int i=0;i<MAX_PARAMS;i++) {
-				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
-			}
-		}
-
-		virtual void finish() {
-			if(ret_success) {
-				set_syscall_param(frompid, RAX, 0);
-			}
-		}
-		virtual void start() { }
-
-		virtual bool operator ==(const Syscall &other) const {
-			return number == other.number;
-		}
-
-		virtual bool post_process(int pass) { return false; }
-};
-
-class sockop {
-	public:
-		class sock *sock;
-		class sock *get_socket() { return sock; }
-};
-
-std::vector<Syscall *> syscall_list;
-/* TODO: check for error return values. Nonblocking? */
-
-class Sysclose : public Syscall, public sockop {
-	public:
-		Sysclose(int p, long n) : Syscall(p, n) {}
-		void start() {
-			int fd = params[0];
-			sock = sock_lookup(frompid, fd);
-			sock_close(frompid, fd);
-		}
-};
-
-class Sysbind : public Syscall, public sockop {
-	public:
-		struct sockaddr addr;
-		socklen_t len;
-		Sysbind(int p, long n) : Syscall(p, n) {}
-		void start() {
-			int sockfd = params[0];
-			GETOBJ(frompid, params[1], &addr);
-			len = params[2];
-			sock = sock_assoc(frompid, sockfd, "", &addr, len);
-		};
-};
-
-class Sysconnect : public Syscall, public sockop {
-	public:
-		class Sysaccept *pair;
-		struct sockaddr addr;
-		socklen_t len;
-		Sysconnect(int p, long n) : Syscall(p, n) {}
-		void start() {
-			int sockfd = params[0];
-			GETOBJ(frompid, params[1], &addr);
-			len = params[2];
-			sock = sock_assoc(frompid, sockfd, "", &addr, len);
-		} 
-		void finish() { }
-};
-
-class Sysaccept : public Syscall, public sockop {
-	public:
-		class Sysconnect *pair;
-		struct sock *serversock = NULL;
-		struct sockaddr addr;
-		socklen_t len;
-		Sysaccept(int p, long n) : Syscall(p, n) {}
-		void start() {
-			int fd = params[0];
-			serversock = sock_lookup(frompid, fd);
-		}
-		void finish() {
-			int sockfd = retval;
-			if(sockfd >= 0) {
-				len = GET(socklen_t, frompid, params[2]);
-				GETOBJ(frompid, params[1], &addr);
-				sock = sock_assoc(frompid, sockfd, "", &addr, len);
-			}
-		}
-
-		bool post_process(int pass) {
-			if(pass == 0) {
-				class sock *c = this->get_socket();
-				class sock *s = this->serversock;
-				if(c && s) {
-					for(auto sys : syscall_list) {
-						auto scconn = dynamic_cast<class Sysconnect *>(sys);
-						if(scconn != nullptr) {
-							/* TODO: we should look for and track connections
-							 * as they happen */
-							struct sock *cl_sock = scconn->get_socket();
-							if(cl_sock && ISASSOC(cl_sock) && ISASSOC(s) && ISASSOC(c)) {
-								c->conn = cl_sock->conn = new connection(cl_sock, c);
-								struct sockaddr_in *in_server_lis
-									= (struct sockaddr_in *)&s->addr;
-								struct sockaddr_in *in_server_cli
-									= (struct sockaddr_in *)&c->addr;
-								struct sockaddr_in *in_client_soc
-									= (struct sockaddr_in *)&cl_sock->addr;
-
-								if(in_client_soc->sin_port == in_server_lis->sin_port
-										&& !memcmp(&in_client_soc->sin_addr,
-											&in_server_cli->sin_addr,
-											sizeof(in_server_cli->sin_addr))) {
-									this->pair = scconn;
-									scconn->pair = this;
-									scconn->exit_event->extra_parents.push_back(this->entry_event);
-									this->exit_event->extra_parents.push_back(scconn->entry_event);
-	//								fprintf(dotdefs, "e%d -> x%d\n", scconn->uuid, scaccept->uuid);
-	//								fprintf(dotdefs, "e%d -> x%d\n", scaccept->uuid, scconn->uuid);
-								}
-							}
-						}
-					}
-				}
-			}
-			return false;
-		}
-};
-
-class Syswrite : public Syscall, public sockop {
-	public:
-		Syswrite(int p, long n) : Syscall(p, n) {}
-		void start() { 
-			sock = sock_lookup(frompid, params[0]);
-			if(!sock) {
-				return;
-			}
-			fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
-					find_tracee(frompid)->id, sock_name(sock).c_str());
-#if 0
-			if(find_tracee(frompid)->id == 0) {
-				static int _t = 0;
-				if(_t != 1) {
-					_t = 1;
-				} else if(1){
-					set_syscall_param(frompid, RDI, -1);
-					ret_success = true;
-				}
-			}
-#endif
-		} 
-		void finish() {
-			if(ret_success) {
-				set_syscall_param(frompid, RAX, params[2]);
-			}
-		}
-
-		bool post_process(int pass) {
-			if(pass == 0) {
-				return true;
-			} else if(pass == 1) {
-				class sock *s = get_socket();
-				if(s && s->conn && retval > 0) {
-					s->conn->write(s, this, retval);
-				}
-			}
-			return false;
-		}
-};
-
-class Sysread : public Syscall, public sockop {
-	public:
-		Sysread(int fpid, long n) : Syscall(fpid, n) {}
-		void start() {
-			sock = sock_lookup(frompid, params[0]);
-			if(!sock) {
-				return;
-			}
-			fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n",
-					find_tracee(frompid)->id, sock_name(sock).c_str());
-		}
-		void finish() {
-			if(!sock) {
-				return;
-			}
-			fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n",
-					find_tracee(frompid)->id, sock_name(sock).c_str());
-		}
-
-		bool post_process(int pass) {
-			if(pass < 2) {
-				return true;
-			} else if(pass == 2) {
-				class sock *s = get_socket();
-				if(s && s->conn && retval > 0) {
-					std::vector<Syscall *> rcs = s->conn->read(s, retval);
-					for(auto wsys : rcs) {
-						exit_event->extra_parents.push_back(wsys->entry_event);
-					}
-				}
-			}
-			return false;
-		}
-};
-
-class Sysrecvfrom : public Syscall, public sockop {
-	public:
-		int socket;
-		void *buffer;
-		size_t length;
-		int flags;
-		struct sockaddr *addr;
-		socklen_t *addrlen;
-
-		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
-
-		void start() {
-			socket = params[0];
-			buffer = (void *)params[1];
-			length = params[2];
-			flags = params[3];
-			addr = (struct sockaddr *)params[4];
-			addrlen = (socklen_t *)params[5];
-		}
-
-		bool operator ==(const Sysrecvfrom &other) const {
-			/* Simple "fuzzy" comparison: socket is the same */
-			/* TODO: check addr for source, etc */
-			return socket == other.socket;
-		}
-
-		void finish() { }
-};
 
 /* HACK: there are not this many syscalls, but there is no defined "num syscalls" to
  * use. */
@@ -412,10 +124,10 @@ int do_trace()
 			if(tracee->syscall) {
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
-				tracee->syscall->finish();
 				class event *e = new event(tracee->syscall, false);
 				tracee->syscall->exit_event = e;
 				tracee->event_seq.push_back(e);
+				tracee->syscall->finish();
 			}
 			tracee->sysnum = -1;
 		}
@@ -515,7 +227,6 @@ int main(int argc, char **argv)
 	}
 
 	if(options.dump) {
-		int uid = 0;
 		FILE *dotout = fopen("out.m4", "w");
 		FILE *dotdefs = fopen("out.inc", "w");
 		fprintf(dotout, "digraph trace {\ninclude(`out.inc')\n");
