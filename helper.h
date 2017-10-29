@@ -3,10 +3,11 @@
 #include <tuple>
 #include <cassert>
 #include <stdexcept>
+#include <sys/syscall.h>
 std::string tracee_readstr(int child, unsigned long addr);
 void tracee_copydata(int child, unsigned long addr, char *buf, ssize_t len);
 void register_syscall_rip(struct trace *t);
-long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, long e, long f);
+long inject_syscall(struct trace *t, long num, long a=0, long b=0, long c=0, long d=0, long e=0, long f=0);
 
 #define GETOBJ(ch,addr,obj) \
 	tracee_copydata(ch,addr,(char *)obj,sizeof(obj))

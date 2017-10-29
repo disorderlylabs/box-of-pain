@@ -6,12 +6,14 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <cstring>
 
 #include <tracee.h>
 #define SYSCALL_INSTRUCTION_SZ 2
 void register_syscall_rip(struct trace *t)
 {
 	if(t->syscall_rip == 0) {
+		memset(&t->uregs, 0, sizeof(t->uregs));
 		if(ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
 			fprintf(stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
@@ -27,8 +29,9 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	}
 
 	ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs);
-	struct user_regs_struct regs;
+	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
+	regs.orig_rax = num;
 	regs.rdi = a;
 	regs.rsi = b;
 	regs.rdx = c;
@@ -42,10 +45,13 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	while(true) {
 		ptrace(PTRACE_SINGLESTEP, t->pid, NULL, NULL);
 		waitpid(t->pid, &status, 0);
+		if(WIFCONTINUED(status)) {
+			break;
+		}
 		if(WIFEXITED(status) || WIFSIGNALED(status)) {
 			return -2;
 		}
-		if(WIFSTOPPED(status)){
+		if(WIFSTOPPED(status)) {
 			if(WSTOPSIG(status) != SIGTRAP) {
 				sig = WSTOPSIG(status);
 				continue;
@@ -59,6 +65,10 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 		kill(t->pid, sig);
 	}
 	ptrace(PTRACE_SETREGS, t->pid, NULL, &t->uregs);
+
+	if(WIFCONTINUED(status)) {
+		return -3;
+	}
 
 	if((long)regs.rax < 0) {
 		errno = -regs.rax;

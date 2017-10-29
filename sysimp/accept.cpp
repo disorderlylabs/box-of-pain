@@ -15,6 +15,8 @@ void Sysaccept::finish() {
 		GETOBJ(frompid, params[1], &addr);
 		sock = sock_assoc(frompid, sockfd, "");
 		sock_set_peer(sock, &addr, len);
+		int r = inject_syscall(tracee, SYS_getpid);
+		fprintf(stderr, "::::::::: %d\n", r);
 
 #if 0
 		class sock *c = this->get_socket();

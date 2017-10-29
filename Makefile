@@ -20,7 +20,7 @@ painbox: $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
 %: %.c
-	$(CC) $(CFLAGS) -o $@ $< -MD
+	$(CC) $(CFLAGS) -o $@ $< -MD -static
 
 -include $(DEPS) $(EXAMPLES_SRC:.c=.d)
 

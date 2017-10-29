@@ -7,6 +7,7 @@
 
 #include "sockets.h"
 #include "helper.h"
+#include "tracee.h"
 
 #define MAX_PARAMS 6 /* linux has 6 register parameters */
 enum syscall_state {
@@ -38,11 +39,13 @@ class event {
 	event(Syscall *s, bool e) : sc(s), entry(e) {}
 };
 
+struct trace;
 class Syscall {
 	public:
 		class event *entry_event, *exit_event;
 		int frompid;
 		int uuid;
+		struct trace *tracee;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
 		unsigned long retval;
@@ -56,6 +59,7 @@ class Syscall {
 			for(int i=0;i<MAX_PARAMS;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
 			}
+			tracee = find_tracee(frompid);
 		}
 
 		virtual void finish() {

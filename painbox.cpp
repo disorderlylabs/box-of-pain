@@ -129,6 +129,10 @@ int do_trace()
 				tracee->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->syscall->finish();
 			}
+			if(tracee->sysnum == SYS_execve) {
+				/* tracee has executed, start tracking */
+				tracee->syscall_rip = 0;
+			}
 			tracee->sysnum = -1;
 		}
 		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
@@ -163,7 +167,7 @@ int main(int argc, char **argv)
 				struct trace *tr = new trace();
 				tr->id = traces.size();
 				tr->sysnum = -1; //we're not in a syscall to start.
-				tr->syscall_rip = 0;
+				tr->syscall_rip = -1;
 				tr->syscall = NULL;
 				tr->exited = false;
 				tr->invoke = strdup(optarg);
