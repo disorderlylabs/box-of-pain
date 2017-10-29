@@ -36,7 +36,6 @@ void Sysaccept::finish() {
 								&& !memcmp(&in_client_soc->sin_addr,
 									&in_server_cli->sin_addr,
 									sizeof(in_server_cli->sin_addr))) {
-							fprintf(stderr, "------> %p\n", scconn->exit_event);
 							this->pair = scconn;
 							scconn->pair = this;
 							scconn->exit_event->extra_parents.push_back(this->entry_event);

@@ -10,7 +10,5 @@ void Sysconnect::start() {
 } 
 
 void Sysconnect::finish() { 
-	if(pair) {
-	}
 }
 

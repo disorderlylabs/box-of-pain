@@ -130,7 +130,6 @@ class Syswrite : public Syscall, public sockop {
 		Syswrite(int p, long n) : Syscall(p, n) {}
 		void finish();
 		void start();
-		bool post_process(int pass);
 };
 
 class Sysread : public Syscall, public sockop {
@@ -138,7 +137,6 @@ class Sysread : public Syscall, public sockop {
 		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void finish();
 		void start();
-		bool post_process(int pass);
 };
 
 class Sysrecvfrom : public Syscall, public sockop {
