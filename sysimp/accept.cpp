@@ -39,6 +39,7 @@ void Sysaccept::finish() {
 							fprintf(stderr, "------> %p\n", scconn->exit_event);
 							this->pair = scconn;
 							scconn->pair = this;
+							scconn->exit_event->extra_parents.push_back(this->entry_event);
 							this->exit_event->extra_parents.push_back(scconn->entry_event);
 						}
 					}

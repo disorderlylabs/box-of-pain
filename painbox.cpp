@@ -112,6 +112,10 @@ int do_trace()
 				class event *e = new event(tracee->syscall, true);
 				tracee->syscall->entry_event = e;
 				tracee->event_seq.push_back(e);
+
+				e = new event(tracee->syscall, false);
+				tracee->syscall->exit_event = e;
+
 				tracee->syscall->uuid = syscall_list.size();
 				syscall_list.push_back(tracee->syscall);
 			}
@@ -124,9 +128,7 @@ int do_trace()
 			if(tracee->syscall) {
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
-				class event *e = new event(tracee->syscall, false);
-				tracee->syscall->exit_event = e;
-				tracee->event_seq.push_back(e);
+				tracee->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->syscall->finish();
 			}
 			tracee->sysnum = -1;
@@ -232,6 +234,8 @@ int main(int argc, char **argv)
 		fprintf(dotout, "digraph trace {\ninclude(`out.inc')\n");
 		for(auto tr : traces) {
 			printf("Trace of %s\n", tr->invoke);
+			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
+
 			fprintf(dotout, "start%d -> ", tr->id);
 			fprintf(dotdefs, "start%d [label=\"%s\"];\n", tr->id, tr->invoke);
 			for(auto e : tr->event_seq) {

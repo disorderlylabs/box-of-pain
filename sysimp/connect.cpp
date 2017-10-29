@@ -11,7 +11,6 @@ void Sysconnect::start() {
 
 void Sysconnect::finish() { 
 	if(pair) {
-		exit_event->extra_parents.push_back(pair->entry_event);
 	}
 }
 
