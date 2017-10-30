@@ -25,6 +25,15 @@ class sock {
 };
 
 class connection {
+	/* streams are used to track the full duplex mode
+	 * TCP connection. Two stream, one for each "direction".
+	 * The stream keeps track of a list of transmissions,
+	 * so that we can match up reads to writes. This is done
+	 * by matching up windows into the tcp stream. The read
+	 * checks to see if read from any of the bytes that were
+	 * written to by any tranmission that it knows about.
+	 * We can then know which write syscalls contributed to
+	 * a particlar read return */
 	class stream {
 		public:
 		class tx {

@@ -19,11 +19,15 @@
 #include "tracee.h"
 #define LOG_SYSCALLS 0
 
+/* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
+
 struct options {
 	bool dump;
 } options = {.dump = false};
 
+/* list of all traced processes in the system */
 std::vector<struct trace *> traces;
+/* list of all syscalls that happen, in order that they are observed */
 std::vector<Syscall *> syscall_list;
 
 struct trace *find_tracee(int pid)
@@ -35,15 +39,23 @@ struct trace *find_tracee(int pid)
 	return NULL;
 }
 
+/* this is just a convoluted way to "make" new syscall objects, by
+ * letting us call constructors in an array based on syscall numbers.
+ * See the top of main() for how these are assigned. */
 template <typename T>
 Syscall * make(int fpid, long n) { return new T(fpid, n); }
 Syscall * (*syscallmap[1024])(int, long) = { };
 
+/* wait for a tracee to be ready to report a syscall. There is no
+ * explicit order guaranteed by this. It could be the same process
+ * twice in a row. We'd probably _like_ to see round-robin, but that
+ * may not be feasible (processes may block for long periods of time). */
 struct trace *wait_for_syscall(void)
 {
 	int status;
 	while(1) {
 		int pid;
+		/* wait for any process */
 		if((pid=waitpid(-1, &status, 0)) == -1) {
 			return NULL;
 		}
@@ -56,19 +68,25 @@ struct trace *wait_for_syscall(void)
 
 		tracee->status = status;
 		if(WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
+			/* got a trace event (syscall entry or exit) */
 			return tracee;
 		}
 		if(WIFEXITED(status)) {
+			/* tracee exited. Cleanup. */
 			tracee->exited = true;
 			tracee->ecode = WEXITSTATUS(status);
 			return tracee;
 		}
+		/* otherwise, tell the tracee to continue until it hits a syscall */
 		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
 	}
 }
 
 int do_trace()
 {
+	/* initialize the tracees. We "continue" them in order by getting their
+	 * status (should be blocked on their SIGSTOP from when they kick off)
+	 * and then telling them to continue until they hit a syscall */
 	for(auto tr : traces) {
 		fprintf(stderr, "init trace on %d\n", tr->pid);
 		int status;
@@ -94,9 +112,12 @@ int do_trace()
 			continue;
 		}
 
+		/* this call will ensure that we always know where a syscall instruction is, in case
+		 * we need to inject a syscall. */
 		register_syscall_rip(tracee);
 
 		if(tracee->sysnum == -1) {
+			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 
@@ -105,12 +126,13 @@ int do_trace()
 #endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
+				/* we're tracking this syscall. Instantiate a new one. */
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->pid, tracee->sysnum);
 				tracee->syscall->start();
 				class event *e = new event(tracee->syscall, true);
+				/* create the entry and exit event */
 				tracee->syscall->entry_event = e;
 				tracee->event_seq.push_back(e);
-
 				e = new event(tracee->syscall, false);
 				tracee->syscall->exit_event = e;
 
@@ -118,25 +140,29 @@ int do_trace()
 				syscall_list.push_back(tracee->syscall);
 			}
 		} else {
+			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->pid, sizeof(long)*RAX);
 			if(errno != 0) break;
 #if LOG_SYSCALLS
 			fprintf(stderr, "[%d]: %s exit -> %d\n", tracee->id, syscall_names[tracee->sysnum], retval);
 #endif
 			if(tracee->syscall) {
+				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
 				tracee->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->syscall->finish();
 			}
 			if(tracee->sysnum == SYS_execve) {
-				/* tracee has executed, start tracking */
+				/* tracee has executed, start tracking. We want to ignore everything before this point
+				 * because it's actually our code. Concretely, it means that syscall_rip will be wrong
+				 * if we set it too early. */
 				tracee->syscall_rip = 0;
 			}
 			tracee->sysnum = -1;
 		}
+		/* ...and continue */
 		ptrace(PTRACE_SYSCALL, tracee->pid, 0, 0);
-
 	}
 	return 0;
 }
@@ -152,6 +178,8 @@ void usage(void)
 #define SETSYS(s) syscallmap[SYS_ ## s] = make<Sys ## s>
 int main(int argc, char **argv)
 {
+	/* this is how you indicate you want to track syscalls. You must
+	 * also implement a Sys<whatever> class (e.g. Sysconnect) */
 	SETSYS(recvfrom);
 	SETSYS(read);
 	SETSYS(write);
@@ -188,6 +216,7 @@ int main(int argc, char **argv)
 	}
 	
 	for(auto tr : traces) {
+		/* parse the args, and start the process */
 		char **args = (char **)calloc(2, sizeof(char *));
 		char *prog = strdup(strtok(tr->invoke, ","));
 		args[0] = prog;
@@ -202,6 +231,7 @@ int main(int argc, char **argv)
 		int pid = fork();
 		if(pid == 0) {
 			ptrace(PTRACE_TRACEME);
+			/* wait for the tracer to get us going later (in do_trace) */
 			kill(getpid(), SIGSTOP);
 			if(execvp(prog, args) == -1) {
 				fprintf(stderr, "failed to execute %s\n", prog);
@@ -212,6 +242,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Tracee %d: starting %s (pid %d)\n", tr->id, tr->invoke, tr->pid);
 	}
 	do_trace();
+	/* done tracing, collect errors */
 	for(auto tr : traces) {
 		if(tr->ecode != 0) {
 			fprintf(stderr, "Tracee %d exited non-zero exit code\n", tr->id);
@@ -220,6 +251,8 @@ int main(int argc, char **argv)
 
 	int pass = 0;
 	bool more = true;
+	/* if we have any post-processing, do that.
+	 * NOTE: this code is deprecated; hopefully we can do everything in real-time */
 	while(more) {
 		fprintf(stderr, "post-processing pass %d\n", pass);
 		more = false;
@@ -234,35 +267,54 @@ int main(int argc, char **argv)
 	}
 
 	if(options.dump) {
+		/* output to a dotout and dotdefs file. The dotdefs is a file that you can write
+		 * fully new entries to each iteration. The dotout file is a file that gets entries
+		 * written to over the course of the loop. They form m4 file, where the dotdefs file
+		 * gets included. To view, run `m4 out.m4 && dot -Tpdf -o out.pdf out.dot` */
 		FILE *dotout = fopen("out.m4", "w");
 		FILE *dotdefs = fopen("out.inc", "w");
 		fprintf(dotout, "digraph trace {\ninclude(`out.inc')\n");
+		fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
 		for(auto tr : traces) {
 			printf("Trace of %s\n", tr->invoke);
 			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
 
 			fprintf(dotout, "start%d -> ", tr->id);
-			fprintf(dotdefs, "start%d [label=\"%s\"];\n", tr->id, tr->invoke);
+			fprintf(dotdefs, "start%d [label=\"%s\",style=\"filled\",fillcolor=\"#1111aa22\"];\n", tr->id, tr->invoke);
 			for(auto e : tr->event_seq) {
 				std::string sockinfo = "";
 				if(auto sop = dynamic_cast<sockop *>(e->sc)) {
 					if(sop->get_socket())
-						sockinfo += "\n" + sock_name_short(sop->get_socket());
+						sockinfo += "" + sock_name_short(sop->get_socket());
 				}
 				fprintf(dotout, "%c%d -> ", e->entry ? 'e' : 'x', e->sc->uuid);
-				fprintf(dotdefs, "%c%d [label=\"%d:%s:%s%s\"];\n",
-						e->entry ? 'e' : 'x', e->sc->uuid, tr->id, e->entry ? "entry" : "exit",
-						syscall_names[e->sc->number],
-						sockinfo.c_str());
-
 				for(auto p : e->extra_parents) {
-					fprintf(dotdefs, "%c%d -> %c%d;\n",
+					fprintf(dotdefs, "%c%d -> %c%d [constraint=\"true\"];\n",
 							p->entry ? 'e' : 'x', p->sc->uuid,
 							e->entry ? 'e' : 'x', e->sc->uuid);
 				}
+
+				if(e->entry) {
+					//fprintf(dotdefs, "subgraph cluster_%d_%d {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
+					//		tr->id, e->sc->uuid, tr->id, syscall_names[e->sc->number]);
+					fprintf(dotdefs, "e%d [label=\"%d:entry:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
+						e->sc->uuid, tr->id,
+						syscall_names[e->sc->number], "",
+						sockinfo.c_str(), tr->id, "#00ff0011");
+
+					fprintf(dotdefs, "x%d [label=\"%d:exit:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
+						e->sc->uuid, tr->id,
+						syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
+						sockinfo.c_str(), tr->id, "#ff000011");
+
+					//fprintf(dotdefs, "}\n");
+
+
+				}
 			}
 			fprintf(dotout, "exit%d;\n", tr->id);
-			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\"];\n", tr->id, tr->ecode);
+			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
+					tr->id, tr->ecode, tr->ecode == 0 ? "#1111aa22" : "#ff111188");
 			printf(" Exited with %d\n", tr->ecode);
 		}
 		fprintf(dotout, "\n}\n");

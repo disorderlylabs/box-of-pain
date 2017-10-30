@@ -16,6 +16,7 @@ enum syscall_state {
 	STATE_DONE,
 };
 
+/* x86_64-linux specific. parameters map (first param is RDI) */
 static const int param_map[MAX_PARAMS] = {
 	RDI,
 	RSI,
@@ -31,10 +32,13 @@ static int set_syscall_param(int pid, int reg, long value)
 }
 
 class Syscall;
+/* an event is a syscall entry or exit. NOTE: we may extend this to
+ * include signals, perhaps. Need to think about the semantics of this. */
 class event {
 	public:
 	Syscall *sc;
 	bool entry;
+	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;
 	event(Syscall *s, bool e) : sc(s), entry(e) {}
 };
@@ -49,6 +53,10 @@ class Syscall {
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
 		unsigned long retval;
+		/* if this gets set, it will force the syscall implementation
+		 * to return success to the process, regardless of what happens.
+		 * This can be used to, for example, make a write look like it
+		 * succeeded while making it fail (by setting fd to -1). */
 		bool ret_success = false;
 		enum syscall_state state;
 
@@ -83,7 +91,6 @@ class sockop {
 };
 
 extern std::vector<Syscall *> syscall_list;
-/* TODO: check for error return values. Nonblocking? */
 
 class Sysclose : public Syscall, public sockop {
 	public:

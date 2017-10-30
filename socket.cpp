@@ -11,6 +11,7 @@
 #include "tracee.h"
 #include "sys.h"
 
+/* test two sockaddrs for equality */
 static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
 {
 	if(a->sa_family != b->sa_family) return false;
@@ -19,6 +20,7 @@ static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
 	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
 }
 
+/* this is a sockaddr_in pair that identifies a connection */
 class connid {
 	public:
 		connid(struct sockaddr *caddr, socklen_t clen, struct sockaddr *saddr, socklen_t slen) : peer1(*caddr), peer2(*saddr), p1len(clen), p2len(slen) {}
@@ -40,6 +42,7 @@ class connid {
 	}
 };
 
+/* this is a simple hash function. */
 unsigned long
 djb2hash(unsigned char *str, size_t len)
 {
@@ -55,11 +58,12 @@ djb2hash(unsigned char *str, size_t len)
 }
 
 namespace std {
+	/* implement hash for connid. Man, I miss Rust syntax sometimes... */
 	template <> struct hash<connid>
 	{
 		size_t operator()(const connid &x) const
 		{
-			return 0;
+			return 0; /* TODO: remove this */
 			return (((djb2hash((unsigned char *)&x.peer1, x.p1len)
 						^ (djb2hash((unsigned char *)&x.peer2, x.p2len) << 1)) >> 1)
 						^ (hash<socklen_t>()(x.p1len) << 1) >> 1)
@@ -69,7 +73,6 @@ namespace std {
 }
 
 static std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
-
 static std::unordered_map<connid, connection *> connections;
 
 void sock_close(int pid, int sock)
@@ -105,6 +108,7 @@ class sock *sock_assoc(int pid, int _sock)
 	return s;
 }
 
+/* lookup socket by address. TODO: use the sa_eq function */
 class sock *sock_lookup_addr(struct sockaddr *addr, socklen_t addrlen)
 {
 	for(auto sm : sockets) {
@@ -187,6 +191,12 @@ std::string sock_name_short(class sock *s)
 	return ret;
 }
 
+/* okay, this function takes a socket and discoveres both its name
+ * and its peer's name (if either is unknown). It does this by injecting
+ * getsockname and getpeername system calls. But those syscalls fill out
+ * memory via pointers. So we need to allocate memory _in the tracee's process_
+ * before injecting the syscalls. After that, we read that memory into
+ * our process and record it. */
 void sock_discover_addresses(struct sock *sock)
 {
 	if(!(sock->flags & S_ASSOC)) return;
@@ -230,8 +240,9 @@ void sock_discover_addresses(struct sock *sock)
 }
 
 void connection::__established() {
+	/* if the connection can be determined (both sides have
+	 * witnessed the syscall exit), then add our edges to extra_parents */
 	if(!connside || !accside) return;
-
 	conn->pair = acc;
 	acc->pair = conn;
 	conn->exit_event->extra_parents.push_back(acc->entry_event);
@@ -269,6 +280,8 @@ std::vector<Syscall *> connection::read(sock *s, size_t len) {
 	assert(s != NULL);
 	class stream *stream = s == connside ? &ba : &ab; //reverse of above
 
+	/* look for overlap between our read (rpos and len) and any transmissions that
+	 * were made */
 	for(auto tx : stream->txs) {
 		if(tx.start < (stream->rpos + len) && stream->rpos < (tx.start + tx.len)) {
 			/* overlap! */

@@ -14,6 +14,10 @@
 #define SYSCALL_INSTRUCTION_SZ 2
 void register_syscall_rip(struct trace *t)
 {
+	/* to inject syscalls, we'll need to find a syscall instruction in the process to
+	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
+	 * anyway) and then figure out the RIP of the process (and subtract the size of the
+	 * syscall instruction) */
 	if(t->syscall_rip == 0) {
 		memset(&t->uregs, 0, sizeof(t->uregs));
 		if(ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs) != -1) {
@@ -26,10 +30,22 @@ void register_syscall_rip(struct trace *t)
 long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, long e, long f)
 {
 	if(t->syscall_rip == 0 || (long)t->syscall_rip == -1) {
+		/* dont inject a syscall before we detect the first syscall. Simple! */
 		fprintf(stderr, "failed to inject syscall into tracee %d\n", t->id);
 		abort();
 	}
 
+	/* okay, here's the plan (it's pretty clever):
+	 *   - Save current uregs, and copy to new struct.
+	 *   - Set arguments and #, and new RIP that points to a syscall instruction.
+	 *   - Set the regs and single-step the process.
+	 *   - wait for the process, and check what happened.
+	 *   - If we got a signal, then we should hold on to it for later.
+	 *   - Once the process has finished the syscall (by TRAP, we'll see the
+	 *     single step done), read the regs to get the return value.
+	 *   - Deliver a signal if we got one
+	 *   - Restore regs, and return retval (after setting errno).
+	 */
 	ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs);
 	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
@@ -81,6 +97,8 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 
 size_t __tracee_alloc_shared_page(struct trace *t, size_t len)
 {
+	/* we're treating this as a arena allocator, because we
+	 * assume the memory gets freed soon after a syscall injection */
 	if(t->sp_mark + len >= 0x1000) {
 		fprintf(stderr, "failed to allocate memory in shared page for tracee %d\n", t->id);
 		abort();
@@ -98,6 +116,8 @@ void tracee_free_shared_page(struct trace *t)
 uintptr_t tracee_get_shared_page(struct trace *t)
 {
 	if(t->shared_page == 0) {
+		/* setting up a "shared" page (it's not really shared, we just know where it is),
+		 * is as simple as injecting mmap into the process! */
 		long ret = inject_syscall(t, SYS_mmap, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 		if((void *)ret == MAP_FAILED) {
 			err(1, "failed to map shared page for tracee %d", t->id);
