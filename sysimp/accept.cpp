@@ -15,6 +15,7 @@ void Sysaccept::finish() {
 		len = GET(socklen_t, frompid, params[2]);
 		GETOBJ(frompid, params[1], &addr);
 		sock = sock_assoc(frompid, sockfd);
+		/* TODO: check if tracee called with NULL arguments */
 		sock_set_peer(sock, &addr, len);
 
 		sock_discover_addresses(sock);

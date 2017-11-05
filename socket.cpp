@@ -224,7 +224,7 @@ void sock_discover_addresses(struct sock *sock)
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
 		tracee_set(tracee->pid, (uintptr_t)__X_len, sizeof(struct sockaddr));
-		int r = inject_syscall(tracee, SYS_getsockname, sock->sockfd, (long)__X_addr, (long)__X_len);
+		int r = inject_syscall(tracee, SYS_getpeername, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
 			socklen_t salen = GET(socklen_t, tracee->pid, (uintptr_t)__X_len);

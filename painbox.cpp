@@ -153,7 +153,7 @@ int do_trace()
 				tracee->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->syscall->finish();
 			}
-			if(tracee->sysnum == SYS_execve) {
+			if(tracee->sysnum == SYS_execve && tracee->syscall_rip == -1) {
 				/* tracee has executed, start tracking. We want to ignore everything before this point
 				 * because it's actually our code. Concretely, it means that syscall_rip will be wrong
 				 * if we set it too early. */
