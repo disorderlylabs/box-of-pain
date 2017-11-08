@@ -21,13 +21,13 @@ void tracee_set(int child, unsigned long addr, unsigned long val);
 	tracee_copydata(ch,addr,(char *)obj,sizeof(obj))
 
 template <typename T, size_t n=1>
-std::tuple<int, T> tracee_readvals(int child, unsigned long addr)
+T tracee_readvals(int child, unsigned long addr)
 {
 	/* TODO: use n */
 	errno = 0;
 	unsigned long tmp = ptrace(PTRACE_PEEKDATA, child, addr);
-	return {errno, (T)tmp};
+	return (T)tmp;
 }
 
 #define GET(T, ch, addr) \
-	({ auto t = tracee_readvals<T>(ch,addr); if(std::get<0>(t) != 0) { throw std::runtime_error(std::string("errno: ") + std::to_string(errno)); }; std::get<1>(t); })
+	({ auto t = tracee_readvals<T>(ch,addr); if(errno != 0) { throw std::runtime_error(std::string("errno: ") + std::to_string(errno)); }; t; })
