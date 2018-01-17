@@ -23,7 +23,7 @@ void tracee_set(int child, unsigned long addr, unsigned long val);
 template <typename T, size_t n=1>
 T tracee_readvals(int child, unsigned long addr)
 {
-	/* TODO: use n */
+	/* TODO: use n as a 'read n values' Right now this only works with n == 1 because that's all we need for now. */
 	errno = 0;
 	unsigned long tmp = ptrace(PTRACE_PEEKDATA, child, addr);
 	return (T)tmp;

@@ -63,7 +63,9 @@ namespace std {
 	{
 		size_t operator()(const connid &x) const
 		{
-			return 0; /* TODO: remove this */
+			return 0; /* TODO: remove this. There's a bug in the below hash function, but it's the general idea.
+			If we try to use the code below, it doesn't work. But it's also not well tested, since I developed this
+			using the 'world's best hash function': return 0. */
 			return (((djb2hash((unsigned char *)&x.peer1, x.p1len)
 						^ (djb2hash((unsigned char *)&x.peer2, x.p2len) << 1)) >> 1)
 						^ (hash<socklen_t>()(x.p1len) << 1) >> 1)
@@ -114,7 +116,7 @@ class sock *sock_lookup_addr(struct sockaddr *addr, socklen_t addrlen)
 	for(auto sm : sockets) {
 		for(auto p : sm.second) {
 			class sock *sock = p.second;
-			if((sock->flags & S_ASSOC) && addrlen == sock->addrlen && !memcmp(addr, &sock->addr, addrlen)) {
+			if((sock->flags & S_ASSOC) && addrlen == sock->addrlen && sa_eq(addr, &sock->addr)) {
 				return sock;
 			}
 		}

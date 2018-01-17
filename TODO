@@ -1,4 +1,0 @@
-- Fix method for starting multiple programs.
-
-- Get a set of total orders (one for each process) and make them into a partial order.
-
