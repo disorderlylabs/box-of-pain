@@ -1,4 +1,4 @@
-CXXFLAGS=-std=c++1z -Wall -Wextra -Og -g -I. -include defl.h
+CXXFLAGS=-std=c++11 -Wall -Wextra -Og -g -I. -include defl.h
 CXX=g++
 
 CFLAGS=-std=gnu11 -Wall -Wextra -Og -g
@@ -20,7 +20,7 @@ painbox: $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
 %: %.c
-	$(CC) $(CFLAGS) -o $@ $< -MD -static
+	$(CC) $(CFLAGS) -o $@ $< -MD
 
 -include $(DEPS) $(EXAMPLES_SRC:.c=.d)
 
