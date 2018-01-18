@@ -16,3 +16,29 @@ Q-server:
 To make the out.m4 file into a PDF, run:
 m4 out.m4 > out.dot && dot -Tpdf -o out.pdf out.dot
 
+
+
+Research Questions / Work
+-------------------------
+More complex examples? Do they work? Do they work correctly? What does the graph
+output look like?
+
+What do these graphs looks like with different programming languages or
+networking libraries? Does it work at all?
+
+*Fix the system if the above things don't work. This may be as simple as
+implementing more system calls and transport-layer protocols (such as UDP).
+It may be as difficult as fixing bugs in the implementation.*
+
+Right now we just support instrumenting different processes. We would like to be
+able to instrument processes in different docker containers. Is this possible?
+How do we do it?
+
+What is the performance impact of our system? How much does it impact
+connection-mode and connection-less sockets? Overhead on connect? Overhead on
+throughput and latency for communication? This needs some thought on how to do
+it best.
+
+*Can we improve performance? I have some ideas...*
+
+
