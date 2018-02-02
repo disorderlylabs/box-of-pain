@@ -9,7 +9,6 @@
 
 int main()
 {
-	sleep(1);
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
 	struct hostent *server = gethostbyname("localhost");
