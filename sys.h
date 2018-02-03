@@ -49,6 +49,7 @@ class Syscall {
 		class event *entry_event, *exit_event;
 		int frompid;
 		int uuid;
+		std::string localid;
 		struct trace *tracee;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
