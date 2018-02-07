@@ -214,10 +214,12 @@ int main(int argc, char **argv)
 				options.dump = true;
 				break;
 			case 'C':
+				printf("Entering containerized mode as: %d %s\n", getpid(), argv[optind]);
 				containerization = 1;
 				r = EOF;			
 				break;
 			case 'T':
+				printf("Entering containerized mode as Tracer\n");
 				containerization = 2;
 				break;
 			default:
@@ -259,25 +261,29 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 2:
-			r = -1;
 			{
-			int pid;			
-			char name[20] = {0};
-			while( (r = scanf("%20s, %u,", name, &pid)) != 0 );
-			{
-				struct trace *tr = new trace();
-				tr->id = traces.size();
-				tr->sysnum = -1; //we're not in a syscall to start.
-				tr->syscall_rip = -1;
-				tr->shared_page = 0;
-				tr->sp_mark = 0;
-				tr->syscall = NULL;
-				tr->exited = false;
-				tr->invoke = strdup(name);
-				tr->pid = pid;
-				traces.push_back(tr);
+				int pid;
+				char line[30] = {0};
+				char name[20] = {0};
+				printf("insert a \"name pid\" pair\n");
+				while( (fgets(line, 30, stdin )) != NULL );
+				{
+					sscanf(line,"%20s %u ", name, &pid);
+					printf("inserted %s %u\n", name, pid);
+					struct trace *tr = new trace();
+					tr->id = traces.size();
+					tr->sysnum = -1; //we're not in a syscall to start.
+					tr->syscall_rip = -1;
+					tr->shared_page = 0;
+					tr->sp_mark = 0;
+					tr->syscall = NULL;
+					tr->exited = false;
+					tr->invoke = strdup(name);
+					tr->pid = pid;
+					traces.push_back(tr);
+				}
 			}
-			}
+			printf("done registering containers\n");
 			break;
 		case 1:
 			ptrace(PTRACE_TRACEME);
