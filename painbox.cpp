@@ -91,6 +91,9 @@ int do_trace()
 		fprintf(stderr, "init trace on %d\n", tr->pid);
 		int status;
 		tr->sysnum = -1;
+		if(ptrace(PTRACE_SEIZE, tr->pid, 0, 0) != 0){
+			perror("PTRACE_SEIZE");
+		}
 		if(waitpid(tr->pid, &status, 0) == -1) {
 			perror("waitpid");
 		}
@@ -214,7 +217,7 @@ int main(int argc, char **argv)
 				options.dump = true;
 				break;
 			case 'C':
-				printf("Entering containerized mode as: %d %s\n", getpid(), argv[optind]);
+				printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
 				containerization = 1;
 				r = EOF;			
 				break;
@@ -248,7 +251,9 @@ int main(int argc, char **argv)
 				}
 				int pid = fork();
 				if(pid == 0) {
-					ptrace(PTRACE_TRACEME);
+					if(ptrace(PTRACE_TRACEME)!= 0){
+						perror("PTRACE_TRACEME");
+					}
 					/* wait for the tracer to get us going later (in do_trace) */
 					kill(getpid(), SIGSTOP);
 					if(execvp(prog, args) == -1) {
@@ -266,7 +271,7 @@ int main(int argc, char **argv)
 				char line[30] = {0};
 				char name[20] = {0};
 				printf("insert a \"name pid\" pair\n");
-				while( (fgets(line, 30, stdin )) != NULL );
+				while( (fgets(line, 30, stdin )) != NULL )
 				{
 					sscanf(line,"%20s %u ", name, &pid);
 					printf("inserted %s %u\n", name, pid);
@@ -286,9 +291,9 @@ int main(int argc, char **argv)
 			printf("done registering containers\n");
 			break;
 		case 1:
-			ptrace(PTRACE_TRACEME);
+			//ptrace(PTRACE_TRACEME);
 			/* wait for the tracer to get us going later (in do_trace) */
-			kill(getpid(), SIGSTOP);
+			raise(SIGSTOP);
 			if(execvp(argv[optind], argv + optind) == -1) {
 				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}
