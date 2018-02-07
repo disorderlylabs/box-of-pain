@@ -9,7 +9,6 @@
 
 int main(int argc, char** argv)
 {
-	sleep(1);
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent *server;
 
@@ -29,7 +28,10 @@ int main(int argc, char** argv)
 	memcpy((char *)&serveraddr.sin_addr.s_addr, server->h_addr, server->h_length);
 	serveraddr.sin_port = htons(1234);
 
+again: 
 	if(connect(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) == -1) {
+		sleep(1);
+		goto again;
 		perror("connect");
 		exit(1);
 	}

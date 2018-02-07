@@ -140,6 +140,7 @@ int do_trace()
 				tracee->syscall->exit_event = e;
 
 				tracee->syscall->uuid = syscall_list.size();
+				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
 			}
 		} else {
@@ -349,25 +350,25 @@ int main(int argc, char **argv)
 					if(sop->get_socket())
 						sockinfo += "" + sock_name_short(sop->get_socket());
 				}
-				fprintf(dotout, "%c%d -> ", e->entry ? 'e' : 'x', e->sc->uuid);
+				fprintf(dotout, "%c%s -> ", e->entry ? 'e' : 'x', e->sc->localid.c_str());
 				for(auto p : e->extra_parents) {
-					fprintf(dotdefs, "%c%d -> %c%d [constraint=\"true\"];\n",
-							p->entry ? 'e' : 'x', p->sc->uuid,
-							e->entry ? 'e' : 'x', e->sc->uuid);
+					fprintf(dotdefs, "%c%s -> %c%s [constraint=\"true\"];\n",
+							p->entry ? 'e' : 'x', p->sc->localid.c_str(),
+							e->entry ? 'e' : 'x', e->sc->localid.c_str());
 				}
 
 				if(e->entry) {
-					//fprintf(dotdefs, "subgraph cluster_%d_%d {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
-					//		tr->id, e->sc->uuid, tr->id, syscall_names[e->sc->number]);
-					fprintf(dotdefs, "e%d [label=\"%d:entry:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->uuid, tr->id,
-							syscall_names[e->sc->number], "",
-							sockinfo.c_str(), tr->id, "#00ff0011");
+					//fprintf(dotdefs, "subgraph cluster_%d_%s {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
+					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
+					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
+						e->sc->localid.c_str(), tr->id,
+						syscall_names[e->sc->number], "",
+						sockinfo.c_str(), tr->id, "#00ff0011");
 
-					fprintf(dotdefs, "x%d [label=\"%d:exit:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->uuid, tr->id,
-							syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
-							sockinfo.c_str(), tr->id, "#ff000011");
+					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
+						e->sc->localid.c_str(), tr->id,
+						syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
+						sockinfo.c_str(), tr->id, "#ff000011");
 
 					//fprintf(dotdefs, "}\n");
 
