@@ -7,18 +7,22 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
-int main()
+int main(int argc, char** argv)
 {
 	sleep(1);
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	struct hostent *server;
 
-	const char *ipstr = "10.0.0.21";
-    struct in_addr ip;
-	inet_aton(ipstr,&ip);
+	if(argc > 1){
+		printf("Set remote address: %s\n", argv[1]);
+   		struct in_addr ip;
+		inet_aton("10.0.0.21",&ip);
+		server = gethostbyaddr((void*)&ip, sizeof ip, AF_INET);
+	}else{
+		printf("Using localhost\n");
+		server = gethostbyname("localhost");
+	}
 
-	struct hostent *server = gethostbyaddr((void*)&ip, sizeof ip, AF_INET);
-	
-	//struct hostent *server = gethostbyname("localhost");
 	struct sockaddr_in serveraddr;
 	memset(&serveraddr, 0, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
