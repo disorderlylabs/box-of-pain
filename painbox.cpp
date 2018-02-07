@@ -91,7 +91,7 @@ int do_trace()
 		fprintf(stderr, "init trace on %d\n", tr->pid);
 		int status;
 		tr->sysnum = -1;
-    	if(waitpid(tr->pid, &status, 0) == -1) {
+		if(waitpid(tr->pid, &status, 0) == -1) {
 			perror("waitpid");
 		}
 		ptrace(PTRACE_SETOPTIONS, tr->pid, 0, PTRACE_O_TRACESYSGOOD);
@@ -187,10 +187,83 @@ int main(int argc, char **argv)
 	SETSYS(connect);
 	SETSYS(bind);
 
+	int containerization = 0; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dh")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTC")) != EOF) {
 		switch(r) {
 			case 'e':
+				{
+					if(containerization==0) containerization = -1;
+					if(containerization!=-1) {usage(); return 1;}
+					struct trace *tr = new trace();
+					tr->id = traces.size();
+					tr->sysnum = -1; //we're not in a syscall to start.
+					tr->syscall_rip = -1;
+					tr->shared_page = 0;
+					tr->sp_mark = 0;
+					tr->syscall = NULL;
+					tr->exited = false;
+					tr->invoke = strdup(optarg);
+					traces.push_back(tr);
+				} break;
+			case 'h':
+				usage();
+				return 0;
+			case 'd':
+				if(containerization==1) {usage(); return 1;}
+				options.dump = true;
+				break;
+			case 'C':
+				containerization = 1;
+				r = EOF;			
+				break;
+			case 'T':
+				containerization = 2;
+				break;
+			default:
+				usage();
+				return 1;
+		}
+	}
+
+	switch(containerization){
+		case 0:
+			usage();
+			return 1;
+		case -1:
+			for(auto tr : traces) {
+				/* parse the args, and start the process */
+				char **args = (char **)calloc(2, sizeof(char *));
+				char *prog = strdup(strtok(tr->invoke, ","));
+				args[0] = prog;
+				char *tmp;
+				int ac = 1;
+				while((tmp = strtok(NULL, ","))) {
+					args = (char **)realloc(args, (ac+2) * sizeof(char *));
+					args[ac] = strdup(tmp);
+					args[ac+1] = NULL;
+					ac++;
+				}
+				int pid = fork();
+				if(pid == 0) {
+					ptrace(PTRACE_TRACEME);
+					/* wait for the tracer to get us going later (in do_trace) */
+					kill(getpid(), SIGSTOP);
+					if(execvp(prog, args) == -1) {
+						fprintf(stderr, "failed to execute %s\n", prog);
+					}
+					exit(255);
+				}
+				tr->pid = pid;
+				fprintf(stderr, "Tracee %d: starting %s (pid %d)\n", tr->id, tr->invoke, tr->pid);
+			}
+			break;
+		case 2:
+			r = -1;
+			{
+			int pid;			
+			char name[20] = {0};
+			while( (r = scanf("%20s, %u,", name, &pid)) != 0 );
 			{
 				struct trace *tr = new trace();
 				tr->id = traces.size();
@@ -200,46 +273,23 @@ int main(int argc, char **argv)
 				tr->sp_mark = 0;
 				tr->syscall = NULL;
 				tr->exited = false;
-				tr->invoke = strdup(optarg);
+				tr->invoke = strdup(name);
+				tr->pid = pid;
 				traces.push_back(tr);
-			} break;
-			case 'h':
-				usage();
-				return 0;
-			case 'd':
-				options.dump = true;
-				break;
-			default:
-				usage();
-				return 1;
-		}
-	}
-	
-	for(auto tr : traces) {
-		/* parse the args, and start the process */
-		char **args = (char **)calloc(2, sizeof(char *));
-		char *prog = strdup(strtok(tr->invoke, ","));
-		args[0] = prog;
-		char *tmp;
-		int ac = 1;
-		while((tmp = strtok(NULL, ","))) {
-			args = (char **)realloc(args, (ac+2) * sizeof(char *));
-			args[ac] = strdup(tmp);
-			args[ac+1] = NULL;
-			ac++;
-		}
-		int pid = fork();
-		if(pid == 0) {
+			}
+			}
+			break;
+		case 1:
 			ptrace(PTRACE_TRACEME);
 			/* wait for the tracer to get us going later (in do_trace) */
 			kill(getpid(), SIGSTOP);
-			if(execvp(prog, args) == -1) {
-				fprintf(stderr, "failed to execute %s\n", prog);
+			if(execvp(argv[optind], argv + optind) == -1) {
+				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}
 			exit(255);
-		}
-		tr->pid = pid;
-		fprintf(stderr, "Tracee %d: starting %s (pid %d)\n", tr->id, tr->invoke, tr->pid);
+		default:
+			usage();
+			return 1;
 	}
 	do_trace();
 	/* done tracing, collect errors */
@@ -298,14 +348,14 @@ int main(int argc, char **argv)
 					//fprintf(dotdefs, "subgraph cluster_%d_%d {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
 					//		tr->id, e->sc->uuid, tr->id, syscall_names[e->sc->number]);
 					fprintf(dotdefs, "e%d [label=\"%d:entry:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-						e->sc->uuid, tr->id,
-						syscall_names[e->sc->number], "",
-						sockinfo.c_str(), tr->id, "#00ff0011");
+							e->sc->uuid, tr->id,
+							syscall_names[e->sc->number], "",
+							sockinfo.c_str(), tr->id, "#00ff0011");
 
 					fprintf(dotdefs, "x%d [label=\"%d:exit:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-						e->sc->uuid, tr->id,
-						syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
-						sockinfo.c_str(), tr->id, "#ff000011");
+							e->sc->uuid, tr->id,
+							syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
+							sockinfo.c_str(), tr->id, "#ff000011");
 
 					//fprintf(dotdefs, "}\n");
 
