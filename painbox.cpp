@@ -251,11 +251,11 @@ int main(int argc, char **argv)
 				}
 				int pid = fork();
 				if(pid == 0) {
-					if(ptrace(PTRACE_TRACEME)!= 0){
-						perror("PTRACE_TRACEME");
-					}
+					//if(ptrace(PTRACE_TRACEME)!= 0){
+					//	perror("PTRACE_TRACEME");
+					//}
 					/* wait for the tracer to get us going later (in do_trace) */
-					kill(getpid(), SIGSTOP);
+					raise(SIGSTOP);
 					if(execvp(prog, args) == -1) {
 						fprintf(stderr, "failed to execute %s\n", prog);
 					}
@@ -288,12 +288,13 @@ int main(int argc, char **argv)
 					traces.push_back(tr);
 				}
 			}
-			printf("done registering containers\n");
+			printf("done inserting containers\n");
 			break;
 		case 1:
 			//ptrace(PTRACE_TRACEME);
 			/* wait for the tracer to get us going later (in do_trace) */
 			raise(SIGSTOP);
+			printf("Running: %s %u\n", argv[optind], getpid());
 			if(execvp(argv[optind], argv + optind) == -1) {
 				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}

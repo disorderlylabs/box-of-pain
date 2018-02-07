@@ -1,0 +1,16 @@
+Containerized box of Pain:
+Split a box of pain across containers.
+Organization:
+tracer === the main box--of--pain process, which traces the others
+    |--- process_1 === Process to be traced
+	:
+    |--- process_n === Process to be traced
+
+
+Use:
+	painbox -C program [args]
+		Launch a program to be traced in containerized mode. Prints its own pid and does not continue until given a signal
+	painbox -T
+		Launch an interactive tracer mode. Takes in name pid pairs until told given ^D, then runs/traces them.
+
+
