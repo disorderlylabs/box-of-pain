@@ -12,12 +12,10 @@ int main(int argc, char** argv)
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent *server;
 
-	if(argc > 1){
-		printf("Set remote address: %s\n", argv[1]);
-   		struct in_addr ip;
-		inet_aton("10.0.0.21",&ip);
-		server = gethostbyaddr((void*)&ip, sizeof ip, AF_INET);
-	}else{
+	printf("Using containerized server\n");
+	server = gethostbyname("server");
+	
+	if(server == NULL){
 		printf("Using localhost\n");
 		server = gethostbyname("localhost");
 	}
