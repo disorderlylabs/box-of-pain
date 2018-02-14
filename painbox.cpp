@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <signal.h>
 #include <sys/ptrace.h>
 #include <sys/reg.h>
@@ -142,6 +143,8 @@ int do_trace()
 				tracee->syscall->uuid = syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
+			} else {
+				fprintf(stderr, "[%d]: %s call\n", tracee->id, syscall_names[tracee->sysnum]);
 			}
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
@@ -192,14 +195,16 @@ int main(int argc, char **argv)
 	SETSYS(connect);
 	SETSYS(bind);
 
-	int containerization = 0; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
+	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
+
+	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
 	while((r = getopt(argc, argv, "e:dhTC")) != EOF) {
 		switch(r) {
 			case 'e':
 				{
-					if(containerization==0) containerization = -1;
-					if(containerization!=-1) {usage(); return 1;}
+					if(containerization==MODE_NULL) containerization = MODE_R;
+					if(containerization!=MODE_R) {usage(); return 1;}
 					struct trace *tr = new trace();
 					tr->id = traces.size();
 					tr->sysnum = -1; //we're not in a syscall to start.
@@ -215,17 +220,16 @@ int main(int argc, char **argv)
 				usage();
 				return 0;
 			case 'd':
-				if(containerization==1) {usage(); return 1;}
 				options.dump = true;
 				break;
 			case 'C':
 				printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
-				containerization = 1;
+				containerization = MODE_C;
 				r = EOF;			
 				break;
 			case 'T':
 				printf("Entering containerized mode as Tracer\n");
-				containerization = 2;
+				containerization = MODE_T;
 				break;
 			default:
 				usage();
@@ -234,10 +238,10 @@ int main(int argc, char **argv)
 	}
 
 	switch(containerization){
-		case 0:
+		case MODE_NULL:
 			usage();
 			return 1;
-		case -1:
+		case MODE_R:
 			for(auto tr : traces) {
 				/* parse the args, and start the process */
 				char **args = (char **)calloc(2, sizeof(char *));
@@ -267,7 +271,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Tracee %d: starting %s (pid %d)\n", tr->id, tr->invoke, tr->pid);
 			}
 			break;
-		case 2:
+		case MODE_T:
 			{
 				int pid;
 				char line[30] = {0};
@@ -292,8 +296,17 @@ int main(int argc, char **argv)
 			}
 			printf("done inserting containers\n");
 			break;
-		case 1:
+		case MODE_C:
 			//ptrace(PTRACE_TRACEME);
+			{				
+				// Tell the tracer about us
+				std::string path = std::string("/tracees/");
+				path = path + argv[optind];
+				FILE * pidfile = fopen(path.c_str(), "wx");
+				if(!pidfile){ perror("painbox:"); exit(1);}
+				fprintf(pidfile,"%d\n",getpid());
+				fclose(pidfile);
+			}
 			/* wait for the tracer to get us going later (in do_trace) */
 			raise(SIGSTOP);
 			printf("Running: %s %u\n", argv[optind], getpid());
@@ -301,6 +314,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}
 			exit(255);
+			break;
 		default:
 			usage();
 			return 1;
@@ -362,14 +376,14 @@ int main(int argc, char **argv)
 					//fprintf(dotdefs, "subgraph cluster_%d_%s {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
 					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
 					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-						e->sc->localid.c_str(), tr->id,
-						syscall_names[e->sc->number], "",
-						sockinfo.c_str(), tr->id, "#00ff0011");
+							e->sc->localid.c_str(), tr->id,
+							syscall_names[e->sc->number], "",
+							sockinfo.c_str(), tr->id, "#00ff0011");
 
 					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-						e->sc->localid.c_str(), tr->id,
-						syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
-						sockinfo.c_str(), tr->id, "#ff000011");
+							e->sc->localid.c_str(), tr->id,
+							syscall_names[e->sc->number], std::to_string((long)e->sc->retval).c_str(),
+							sockinfo.c_str(), tr->id, "#ff000011");
 
 					//fprintf(dotdefs, "}\n");
 
