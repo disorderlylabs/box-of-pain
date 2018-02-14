@@ -21,6 +21,7 @@ class sock {
 		int sockfd;
 		int frompid;
 		struct connection *conn;
+		struct noconnection *nconn;
 		sock() { }
 };
 
@@ -59,7 +60,33 @@ class connection {
 	void set_connside(Sysconnect *sys, sock *s);
 	void __established();
 };
+/*
+class noconnection{
+	A UDP socket does not have a connection,
+		we must give it something else to work with
+		A transmission can be characterized by a source and length
+	
+	class pseudostream {
+		class tx {
+			public:
+				size_t len;
+				sockaddr_t source;
+				Syscall *s;
+		}
 
+	} messages;
+
+	public:
+		class sock *sock = NULL;
+
+		noconnection() {}
+
+		Syscall * recvfrom(sockaddr_t source, size_t len);
+		void sendfrom(Syscall *sys, sockaddr_t source, size_t len);
+
+}
+
+*/
 #define ISASSOC(s) ((s)->flags & S_ASSOC)
 
 class sock *sock_lookup(int pid, int sock);

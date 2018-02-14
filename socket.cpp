@@ -272,6 +272,9 @@ void connection::write(sock *s, Syscall *sys, size_t len) {
 	stream->wpos += len;
 }
 
+
+
+
 std::vector<Syscall *> connection::read(sock *s, size_t len) {
 	std::vector<Syscall *> rcs;
 
@@ -294,3 +297,14 @@ std::vector<Syscall *> connection::read(sock *s, size_t len) {
 	return rcs;
 }
 
+/*
+Syscall * noconnection::recvfrom(sockaddr_t source, size_t len){
+	//Find a message from the given source, having the given length
+
+}
+
+void noconnection::sendfrom(Syscall* sys, sockaddr_t source, size_t len){
+	messages.Something(class pseudostream::tx({.source = source, .len = len,}))
+
+}
+*/

@@ -154,7 +154,7 @@ class Sysread : public Syscall, public sockop {
 
 class Sysrecvfrom : public Syscall, public sockop {
 	public:
-		int socket;
+		int sockfd;
 		void *buffer;
 		size_t length;
 		int flags;
@@ -163,21 +163,23 @@ class Sysrecvfrom : public Syscall, public sockop {
 
 		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
 
-		void start() {
-			socket = params[0];
-			buffer = (void *)params[1];
-			length = params[2];
-			flags = params[3];
-			addr = (struct sockaddr *)params[4];
-			addrlen = (socklen_t *)params[5];
-		}
+		void start();
+		void finish();
+};
 
-		bool operator ==(const Sysrecvfrom &other) const {
-			/* Simple "fuzzy" comparison: socket is the same */
-			/* TODO: check addr for source, etc */
-			return socket == other.socket;
-		}
+class Syssendto : public Syscall, public sockop {
+	public:
+		int sockfd;
+		void *buffer;
+		size_t length;
+		int flags;
+		struct sockaddr *dest;
+		socklen_t dest_len;
 
-		void finish() { }
+		Syssendto(int fpid, long n) : Syscall(fpid, n) {}
+
+        void start();
+        void finish();
+
 };
 
