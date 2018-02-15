@@ -25,7 +25,8 @@
 
 struct options {
 	bool dump;
-} options = {.dump = false};
+	bool verbose;
+} options = {.dump = false, .verbose = false};
 
 /* list of all traced processes in the system */
 std::vector<struct trace *> traces;
@@ -89,18 +90,31 @@ int do_trace()
 	/* initialize the tracees. We "continue" them in order by getting their
 	 * status (should be blocked on their SIGSTOP from when they kick off)
 	 * and then telling them to continue until they hit a syscall */
+	
 	for(auto tr : traces) {
 		fprintf(stderr, "init trace on %d\n", tr->pid);
 		int status;
 		tr->sysnum = -1;
+
+		//Begin tracing
 		if(ptrace(PTRACE_SEIZE, tr->pid, 0, 0) != 0){
 			perror("PTRACE_SEIZE");
 		}
+
+		//Ensure tracing was successful
 		if(waitpid(tr->pid, &status, 0) == -1) {
 			perror("waitpid");
 		}
+
+		//Set option to make tracing calls easier
 		ptrace(PTRACE_SETOPTIONS, tr->pid, 0, PTRACE_O_TRACESYSGOOD);
 		if(errno != 0) { perror("ptrace SETOPTIONS"); }
+
+		//Enable tracing on child threads
+		ptrace(PTRACE_SETOPTIONS, tr->pid, 0, PTRACE_O_TRACECLONE);
+		if(errno != 0) { perror("ptrace SETOPTIONS"); }
+
+		//Continue execution until the next syscall
 		ptrace(PTRACE_SYSCALL, tr->pid, 0, 0);
 		if(errno != 0) { perror("ptrace SYSCALL"); }
 	}
@@ -144,7 +158,7 @@ int do_trace()
 				tracee->syscall->uuid = syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
-			} else {
+			} else if (options.verbose) {
 				fprintf(stderr, "[%d]: %s call\n", tracee->id, syscall_names[tracee->sysnum]);
 			}
 		} else {
@@ -222,6 +236,9 @@ int main(int argc, char **argv)
 				return 0;
 			case 'd':
 				options.dump = true;
+				break;
+			case 'v':
+				options.verbose = true;
 				break;
 			case 'C':
 				printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
