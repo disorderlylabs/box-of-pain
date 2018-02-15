@@ -286,12 +286,15 @@ int main(int argc, char **argv)
 				for(struct dirent * trdirit = readdir(trdir); trdirit != NULL; \
 						trdirit = readdir(trdir))
 				{
-					if(trdirit->d_type != DT_REG) {continue;}					
-					FILE * trfile = fopen(trdirit->d_name, "r");
-					if(!trfile) {perror("fopen"); continue;}
-					int pid;
-					fscanf(trfile, " %d ", &pid);
-					printf("inserted %s %u\n", trdirit->d_name, pid);
+					if(trdirit->d_type != DT_REG) {continue;}
+					std::string path = std::string("/tracees/");
+					path = path + trdirit->d_name;
+					FILE * trfile = fopen(path.c_str(), "r");
+					if(!trfile) {perror("fopen"); printf("%s\n",trdirit->d_name);  continue;}
+					int pid = atoi(trdirit->d_name);
+					char name[100];
+					fgets(name, 100, trfile);
+					printf("inserted %s %u\n", name, pid);
 					fclose(trfile);
 					struct trace *tr = new trace();
 					tr->id = traces.size();
@@ -301,7 +304,7 @@ int main(int argc, char **argv)
 					tr->sp_mark = 0;
 					tr->syscall = NULL;
 					tr->exited = false;
-					tr->invoke = strdup(trdirit->d_name);
+					tr->invoke = strdup(name);
 					tr->pid = pid;
 					traces.push_back(tr);
 				}
@@ -314,10 +317,10 @@ int main(int argc, char **argv)
 			{				
 				// Tell the tracer about us
 				std::string path = std::string("/tracees/");
-				path = path + argv[optind];
+				path = path + std::to_string((int) getpid());
 				FILE * pidfile = fopen(path.c_str(), "wx");
 				if(!pidfile){ perror("painbox:"); exit(1);}
-				fprintf(pidfile," %d \n",getpid());
+				fprintf(pidfile,"%s",argv[optind]);
 				fclose(pidfile);
 			}
 			/* wait for the tracer to get us going later (in do_trace) */
