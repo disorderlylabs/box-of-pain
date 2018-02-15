@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <dirent.h>
 #include <string>
 #include <signal.h>
 #include <sys/ptrace.h>
@@ -273,14 +274,25 @@ int main(int argc, char **argv)
 			break;
 		case MODE_T:
 			{
-				int pid;
-				char line[30] = {0};
-				char name[20] = {0};
-				printf("insert a \"name pid\" pair\n");
-				while( (fgets(line, 30, stdin )) != NULL )
+				printf("press enter to read tracee directory\n");
+				while(getchar() != 10) {}
+
+				DIR * trdir = opendir("/tracees");
+				if(!trdir)
 				{
-					sscanf(line,"%20s %u ", name, &pid);
-					printf("inserted %s %u\n", name, pid);
+					perror("opendir");
+					exit(1);
+				}
+				for(struct dirent * trdirit = readdir(trdir); trdirit != NULL; \
+						trdirit = readdir(trdir))
+				{
+					if(trdirit->d_type != DT_REG) {continue;}					
+					FILE * trfile = fopen(trdirit->d_name, "r");
+					if(!trfile) {perror("fopen"); continue;}
+					int pid;
+					fscanf(trfile, " %d ", &pid);
+					printf("inserted %s %u\n", trdirit->d_name, pid);
+					fclose(trfile);
 					struct trace *tr = new trace();
 					tr->id = traces.size();
 					tr->sysnum = -1; //we're not in a syscall to start.
@@ -289,10 +301,11 @@ int main(int argc, char **argv)
 					tr->sp_mark = 0;
 					tr->syscall = NULL;
 					tr->exited = false;
-					tr->invoke = strdup(name);
+					tr->invoke = strdup(trdirit->d_name);
 					tr->pid = pid;
 					traces.push_back(tr);
 				}
+				closedir(trdir);
 			}
 			printf("done inserting containers\n");
 			break;
@@ -304,7 +317,7 @@ int main(int argc, char **argv)
 				path = path + argv[optind];
 				FILE * pidfile = fopen(path.c_str(), "wx");
 				if(!pidfile){ perror("painbox:"); exit(1);}
-				fprintf(pidfile,"%d\n",getpid());
+				fprintf(pidfile," %d \n",getpid());
 				fclose(pidfile);
 			}
 			/* wait for the tracer to get us going later (in do_trace) */
