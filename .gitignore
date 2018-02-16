@@ -8,6 +8,7 @@ client
 *.m4
 *.inc
 *.pdf
+.swp
 qs
 quorum_server
 rdc
@@ -17,4 +18,4 @@ rds
 simplog_sender
 sls
 server
-
+.DS_STORE
