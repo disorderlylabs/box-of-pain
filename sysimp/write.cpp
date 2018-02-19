@@ -2,12 +2,12 @@
 #include <tracee.h>
 
 void Syswrite::start() { 
-	sock = sock_lookup(frompid, params[0]);
+	sock = sock_lookup(tracee, params[0]);
 	if(!sock) {
 		return;
 	}
 	fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
-			find_tracee(frompid)->id, sock_name(sock).c_str());
+			tracee->id, sock_name(sock).c_str());
 	if(sock->conn) {
 		/* TODO: we need to only pass the SUCCESSFUL # OF BYTES WRITTEN!! */
 		sock->conn->write(sock, this, params[2]);

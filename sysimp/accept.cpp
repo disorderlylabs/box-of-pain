@@ -6,7 +6,7 @@
 #include <cstring>
 void Sysaccept::start() {
 	int fd = params[0];
-	serversock = sock_lookup(frompid, fd);
+	serversock = sock_lookup(tracee, fd);
 }
 
 void Sysaccept::finish() {
@@ -14,7 +14,7 @@ void Sysaccept::finish() {
 	if(sockfd >= 0) {
 		len = GET(socklen_t, frompid, params[2]);
 		GETOBJ(frompid, params[1], &addr);
-		sock = sock_assoc(frompid, sockfd);
+		sock = sock_assoc(tracee, sockfd);
 		/* TODO: check if tracee called with NULL arguments */
 		sock_set_peer(sock, &addr, len);
 

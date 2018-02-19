@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 #include <sys/reg.h>
 #include <sys/user.h>
@@ -7,7 +8,8 @@
 class event;
 class Syscall;
 struct trace {
-	int pid;
+	std::vector<int> pids;
+	int currentpid;
 	int ecode;
 	int id;
 	int status;

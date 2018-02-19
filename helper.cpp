@@ -20,7 +20,7 @@ void register_syscall_rip(struct trace *t)
 	 * syscall instruction) */
 	if(t->syscall_rip == 0) {
 		memset(&t->uregs, 0, sizeof(t->uregs));
-		if(ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs) != -1) {
+		if(ptrace(PTRACE_GETREGS, t->currentpid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
 			fprintf(stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
 		}
@@ -46,7 +46,7 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	 *   - Deliver a signal if we got one
 	 *   - Restore regs, and return retval (after setting errno).
 	 */
-	ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs);
+	ptrace(PTRACE_GETREGS, t->currentpid, NULL, &t->uregs);
 	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
 	regs.orig_rax = num;
@@ -57,12 +57,12 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	regs.r8 = e;
 	regs.r9 = f;
 	regs.rip = t->syscall_rip;
-	ptrace(PTRACE_SETREGS, t->pid, NULL, &regs);
+	ptrace(PTRACE_SETREGS, t->currentpid, NULL, &regs);
 	int status;
 	int sig = 0;
 	while(true) {
-		ptrace(PTRACE_SINGLESTEP, t->pid, NULL, NULL);
-		waitpid(t->pid, &status, 0);
+		ptrace(PTRACE_SINGLESTEP, t->currentpid, NULL, NULL);
+		waitpid(t->currentpid, &status, 0);
 		if(WIFCONTINUED(status)) {
 			break;
 		}
@@ -78,11 +78,11 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 			}
 		}
 	}
-	ptrace(PTRACE_GETREGS, t->pid, NULL, &regs);
+	ptrace(PTRACE_GETREGS, t->currentpid, NULL, &regs);
 	if(sig) {
-		kill(t->pid, sig);
+		kill(t->currentpid, sig);
 	}
-	ptrace(PTRACE_SETREGS, t->pid, NULL, &t->uregs);
+	ptrace(PTRACE_SETREGS, t->currentpid, NULL, &t->uregs);
 
 	if(WIFCONTINUED(status)) {
 		return -3;

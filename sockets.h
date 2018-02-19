@@ -19,7 +19,7 @@ class sock {
 		socklen_t addrlen, peerlen;
 		int flags = 0;
 		int sockfd;
-		int frompid;
+		struct trace *fromtr;
 		struct connection *conn;
 		struct noconnection *nconn;
 		sock() { }

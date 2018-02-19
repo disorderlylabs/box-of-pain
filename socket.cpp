@@ -77,9 +77,9 @@ namespace std {
 static std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
 static std::unordered_map<connid, connection *> connections;
 
-void sock_close(int pid, int sock)
-{
-	sockets[pid][sock] = NULL;
+void sock_close(struct trace * tracee, int sock)
+{	
+	sockets[tracee->id][sock] = NULL;
 }
 
 void sock_set_peer(sock *s, struct sockaddr *peer, socklen_t plen)
@@ -96,7 +96,7 @@ void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len)
 	s->flags |= S_ADDR;
 }
 
-class sock *sock_assoc(int pid, int _sock)
+class sock *sock_assoc(struct trace * tracee, int _sock)
 {
 	static long __id = 0;
 	class sock *s = new sock;
@@ -104,9 +104,9 @@ class sock *sock_assoc(int pid, int _sock)
 	s->name = "";
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
-	s->frompid = pid;
-	sockets[pid][_sock] = s;
-	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", pid, _sock, sock_name(sockets[pid][_sock]).c_str());
+	s->fromtr = tracee;
+	sockets[tracee->id][_sock] = s;
+	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", tracee->id, _sock, sock_name(sockets[tracee->id][_sock]).c_str());
 	return s;
 }
 
@@ -134,11 +134,12 @@ class connection *conn_lookup(struct sockaddr *caddr, socklen_t clen,
 	return connections[id];
 }
 
-class sock *sock_lookup(int pid, int sock)
+class sock *sock_lookup(struct trace * tracee, int sock)
 {
-	if(sockets.find(pid) != sockets.end()) {
-		if(sockets[pid].find(sock) != sockets[pid].end()) {
-			return sockets[pid][sock];
+	if(!tracee) return NULL;
+	if(sockets.find(tracee->id) != sockets.end()) {
+		if(sockets[tracee->id].find(sock) != sockets[tracee->id].end()) {
+			return sockets[tracee->id][sock];
 		}
 	}
 	return NULL;
@@ -149,7 +150,7 @@ std::string sock_name(class sock *s)
 	if(s->name != "") {
 		return s->name;
 	}
-	std::string ret = std::to_string(s->frompid);
+	std::string ret = std::to_string(s->fromtr->id);
 	ret += "::";
 	ret += std::to_string(s->sockfd);
 	ret += "::";
@@ -203,16 +204,16 @@ void sock_discover_addresses(struct sock *sock)
 {
 	if(!(sock->flags & S_ASSOC)) return;
 	
-	struct trace *tracee = find_tracee(sock->frompid);
+	struct trace *tracee = sock->tracee;
 	if(!(sock->flags & S_ADDR)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
-		tracee_set(tracee->pid, (uintptr_t)__X_len, sizeof(struct sockaddr));
+		tracee_set(tracee->currentpid, (uintptr_t)__X_len, sizeof(struct sockaddr));
 		int r = inject_syscall(tracee, SYS_getsockname, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
-			socklen_t salen = GET(socklen_t, tracee->pid, (uintptr_t)__X_len);
-			GETOBJ(tracee->pid, (long)__X_addr, &sa);
+			socklen_t salen = GET(socklen_t, tracee->currentpid, (uintptr_t)__X_len);
+			GETOBJ(tracee->currentpid, (long)__X_addr, &sa);
 			if(errno != 0) err(1, "failed to read sockname");
 			sock_set_addr(sock, &sa, salen);
 		} else {
@@ -225,12 +226,12 @@ void sock_discover_addresses(struct sock *sock)
 	if(!(sock->flags & S_PEER)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
-		tracee_set(tracee->pid, (uintptr_t)__X_len, sizeof(struct sockaddr));
+		tracee_set(tracee->currentpid, (uintptr_t)__X_len, sizeof(struct sockaddr));
 		int r = inject_syscall(tracee, SYS_getpeername, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
-			socklen_t salen = GET(socklen_t, tracee->pid, (uintptr_t)__X_len);
-			GETOBJ(tracee->pid, (long)__X_addr, &sa);
+			socklen_t salen = GET(socklen_t, tracee->currentpid, (uintptr_t)__X_len);
+			GETOBJ(tracee->currentpid, (long)__X_addr, &sa);
 			if(errno != 0) err(1, "failed to read sockname");
 			sock_set_peer(sock, &sa, salen);
 		} else {

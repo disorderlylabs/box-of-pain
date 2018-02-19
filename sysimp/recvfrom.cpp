@@ -14,22 +14,22 @@ void Sysrecvfrom::start() {
 
 	if(addr == NULL){
 
-		sock = sock_lookup(frompid, sockfd);
+		sock = sock_lookup(tracee, sockfd);
 		if(!sock) {
 			return;
 		}
 		fprintf(stderr, "[%d]: SOCKET %-26s RECVFROM enter\n",
-				find_tracee(frompid)->id, sock_name(sock).c_str());
+				tracee->id, sock_name(sock).c_str());
 	}
 		else
 	{
 
-		sock = sock_lookup(frompid, sockfd);
+		sock = sock_lookup(tracee, sockfd);
 		if(!sock) {
 			return;
 		}
 		fprintf(stderr, "[%d]: SOCKET %-26s UNCONNECTED RECVFROM enter\n",
-				find_tracee(frompid)->id, sock_name(sock).c_str());
+				tracee->id, sock_name(sock).c_str());
 		sock = NULL;
 	}
 }
@@ -40,7 +40,7 @@ void Sysrecvfrom::finish() {
 		return;
 	}
 	fprintf(stderr, "[%d]: SOCKET %-26s RECVFROM  retur\n",
-			find_tracee(frompid)->id, sock_name(sock).c_str());
+			tracee->id, sock_name(sock).c_str());
 
 	if(sock->conn && retval > 0) {
 		std::vector<Syscall *> rcs = sock->conn->read(sock, retval);
