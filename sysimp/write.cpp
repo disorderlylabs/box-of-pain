@@ -7,7 +7,7 @@ void Syswrite::start() {
 		return;
 	}
 	fprintf(stderr, "[%d]: SOCKET %-26s WRITE enter\n",
-			find_tracee(frompid)->id, sock_name(sock).c_str());
+			thread->id, sock_name(sock).c_str());
 	if(sock->conn) {
 		/* TODO: we need to only pass the SUCCESSFUL # OF BYTES WRITTEN!! */
 		sock->conn->write(sock, this, params[2]);
@@ -15,7 +15,7 @@ void Syswrite::start() {
 } 
 void Syswrite::finish() {
 	if(ret_success) {
-		set_syscall_param(frompid, RAX, params[2]);
+		set_syscall_param(fromtid, RAX, params[2]);
 	}
 }
 

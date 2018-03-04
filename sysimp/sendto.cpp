@@ -18,7 +18,7 @@ void Syssendto::start() {
 			return;
 		}
 		fprintf(stderr, "[%d]: SOCKET %-26s SENDTO enter\n",
-				find_tracee(frompid)->id, sock_name(sock).c_str());
+				thread->id, sock_name(sock).c_str());
 		if(sock->conn) {
 			/* TODO: we need to only pass the SUCCESSFUL # OF BYTES WRITTEN!! */
 			sock->conn->write(sock, this, params[2]);
@@ -26,7 +26,7 @@ void Syssendto::start() {
 	} else {
 		//Otherwise, we use the real, udp-style sendto
 		fprintf(stderr, "[%d]: SENDTO with DESTINATION enter\n",
-				find_tracee(frompid)->id);
+				thread->id);
 
 	}
 
@@ -34,6 +34,6 @@ void Syssendto::start() {
 
 void Syssendto::finish() {
 	if(ret_success) {
-		set_syscall_param(frompid, RAX, params[2]);
+		set_syscall_param(fromtid, RAX, params[2]);
 	}
 }

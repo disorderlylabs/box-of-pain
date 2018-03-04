@@ -17,7 +17,7 @@ painbox: $(OBJECTS)
 	$(CXX) -o painbox $(OBJECTS) -lstdc++
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
+	-$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
 %: %.c
 	$(CC) $(CFLAGS) -o $@ $< -MD

@@ -26,9 +26,9 @@ static const int param_map[MAX_PARAMS] = {
 	R9
 };
 
-static int set_syscall_param(int pid, int reg, long value)
+static int set_syscall_param(int tid, int reg, long value)
 {
-	return ptrace(PTRACE_POKEUSER, pid, sizeof(long)*reg, value);
+	return ptrace(PTRACE_POKEUSER, tid, sizeof(long)*reg, value);
 }
 
 class Syscall;
@@ -43,14 +43,15 @@ class event {
 	event(Syscall *s, bool e) : sc(s), entry(e) {}
 };
 
-struct trace;
+struct thread_tr;
 class Syscall {
 	public:
 		class event *entry_event, *exit_event;
+		int fromtid;
 		int frompid;
 		int uuid;
 		std::string localid;
-		struct trace *tracee;
+		struct thread_tr *thread;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
 		unsigned long retval;
@@ -61,19 +62,20 @@ class Syscall {
 		bool ret_success = false;
 		enum syscall_state state;
 
-		Syscall(int fpid, long num) {
-			frompid = fpid;
+		Syscall(int ftid, long num) {
+			fromtid = ftid;
 			state = STATE_CALLED;
 			number = num;
 			for(int i=0;i<MAX_PARAMS;i++) {
-				params[i] = ptrace(PTRACE_PEEKUSER, frompid, sizeof(long)*param_map[i]);
+				params[i] = ptrace(PTRACE_PEEKUSER, fromtid, sizeof(long)*param_map[i]);
 			}
-			tracee = find_tracee(frompid);
+			thread = find_tracee(fromtid);
+			frompid = thread->proc->pid;
 		}
 
 		virtual void finish() {
 			if(ret_success) {
-				set_syscall_param(frompid, RAX, 0);
+				set_syscall_param(fromtid, RAX, 0);
 			}
 		}
 		virtual void start() { }
@@ -110,9 +112,9 @@ class Sysbind : public Syscall, public sockop {
 		Sysbind(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int sockfd = params[0];
-			GETOBJ(frompid, params[1], &addr);
+			GETOBJ(fromtid, params[1], &addr);
 			len = params[2];
-			sock = sock_assoc(frompid, sockfd);
+			sock = sock_assoc(thread , sockfd);
 			sock_set_addr(sock, &addr, len);
 		};
 };

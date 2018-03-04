@@ -96,17 +96,18 @@ void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len)
 	s->flags |= S_ADDR;
 }
 
-class sock *sock_assoc(int pid, int _sock)
-{
+class sock *sock_assoc(struct thread_tr* tr, int _sock)
+{	
 	static long __id = 0;
 	class sock *s = new sock;
+	s->proc = tr->proc;
 	s->uuid = __id++;
 	s->name = "";
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
-	s->frompid = pid;
-	sockets[pid][_sock] = s;
-	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", pid, _sock, sock_name(sockets[pid][_sock]).c_str());
+	s->frompid = s->proc->pid;
+	sockets[s->frompid][_sock] = s;
+	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(sockets[s->frompid][_sock]).c_str());
 	return s;
 }
 
@@ -203,16 +204,16 @@ void sock_discover_addresses(struct sock *sock)
 {
 	if(!(sock->flags & S_ASSOC)) return;
 	
-	struct trace *tracee = find_tracee(sock->frompid);
+	struct thread_tr *tracee = find_tracee(sock->fromtid);
 	if(!(sock->flags & S_ADDR)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
-		tracee_set(tracee->pid, (uintptr_t)__X_len, sizeof(struct sockaddr));
+		tracee_set(tracee->tid, (uintptr_t)__X_len, sizeof(struct sockaddr));
 		int r = inject_syscall(tracee, SYS_getsockname, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
-			socklen_t salen = GET(socklen_t, tracee->pid, (uintptr_t)__X_len);
-			GETOBJ(tracee->pid, (long)__X_addr, &sa);
+			socklen_t salen = GET(socklen_t, tracee->tid, (uintptr_t)__X_len);
+			GETOBJ(tracee->tid, (long)__X_addr, &sa);
 			if(errno != 0) err(1, "failed to read sockname");
 			sock_set_addr(sock, &sa, salen);
 		} else {
@@ -225,12 +226,12 @@ void sock_discover_addresses(struct sock *sock)
 	if(!(sock->flags & S_PEER)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
-		tracee_set(tracee->pid, (uintptr_t)__X_len, sizeof(struct sockaddr));
+		tracee_set(tracee->tid, (uintptr_t)__X_len, sizeof(struct sockaddr));
 		int r = inject_syscall(tracee, SYS_getpeername, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
-			socklen_t salen = GET(socklen_t, tracee->pid, (uintptr_t)__X_len);
-			GETOBJ(tracee->pid, (long)__X_addr, &sa);
+			socklen_t salen = GET(socklen_t, tracee->tid, (uintptr_t)__X_len);
+			GETOBJ(tracee->tid, (long)__X_addr, &sa);
 			if(errno != 0) err(1, "failed to read sockname");
 			sock_set_peer(sock, &sa, salen);
 		} else {

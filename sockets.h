@@ -19,7 +19,9 @@ class sock {
 		socklen_t addrlen, peerlen;
 		int flags = 0;
 		int sockfd;
-		int frompid;
+		int frompid; //The process within which the socket exists
+		struct proc_tr *proc; 
+		int fromtid; //The thread which created the socket. Should only be used during socket creation
 		struct connection *conn;
 		struct noconnection *nconn;
 		sock() { }
@@ -90,7 +92,7 @@ class noconnection{
 #define ISASSOC(s) ((s)->flags & S_ASSOC)
 
 class sock *sock_lookup(int pid, int sock);
-class sock *sock_assoc(int pid, int sock);
+class sock *sock_assoc(struct thread_tr * tr, int sock);
 std::string sock_name(class sock *s);
 std::string sock_name_short(class sock *s);
 void sock_close(int pid, int sock);

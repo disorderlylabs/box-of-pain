@@ -12,7 +12,7 @@
 
 #include <tracee.h>
 #define SYSCALL_INSTRUCTION_SZ 2
-void register_syscall_rip(struct trace *t)
+void register_syscall_rip(struct thread_tr *t)
 {
 	/* to inject syscalls, we'll need to find a syscall instruction in the process to
 	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
@@ -20,14 +20,14 @@ void register_syscall_rip(struct trace *t)
 	 * syscall instruction) */
 	if(t->syscall_rip == 0) {
 		memset(&t->uregs, 0, sizeof(t->uregs));
-		if(ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs) != -1) {
+		if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
 			fprintf(stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
 		}
 	}
 }
 
-long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, long e, long f)
+long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long d, long e, long f)
 {
 	if(t->syscall_rip == 0 || (long)t->syscall_rip == -1) {
 		/* dont inject a syscall before we detect the first syscall. Simple! */
@@ -46,7 +46,7 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	 *   - Deliver a signal if we got one
 	 *   - Restore regs, and return retval (after setting errno).
 	 */
-	ptrace(PTRACE_GETREGS, t->pid, NULL, &t->uregs);
+	ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs);
 	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
 	regs.orig_rax = num;
@@ -57,12 +57,12 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	regs.r8 = e;
 	regs.r9 = f;
 	regs.rip = t->syscall_rip;
-	ptrace(PTRACE_SETREGS, t->pid, NULL, &regs);
+	ptrace(PTRACE_SETREGS, t->tid, NULL, &regs);
 	int status;
 	int sig = 0;
 	while(true) {
-		ptrace(PTRACE_SINGLESTEP, t->pid, NULL, NULL);
-		waitpid(t->pid, &status, 0);
+		ptrace(PTRACE_SINGLESTEP, t->tid, NULL, NULL);
+		waitpid(t->tid, &status, 0);
 		if(WIFCONTINUED(status)) {
 			break;
 		}
@@ -78,11 +78,11 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 			}
 		}
 	}
-	ptrace(PTRACE_GETREGS, t->pid, NULL, &regs);
+	ptrace(PTRACE_GETREGS, t->tid, NULL, &regs);
 	if(sig) {
-		kill(t->pid, sig);
+		kill(t->tid, sig);
 	}
-	ptrace(PTRACE_SETREGS, t->pid, NULL, &t->uregs);
+	ptrace(PTRACE_SETREGS, t->tid, NULL, &t->uregs);
 
 	if(WIFCONTINUED(status)) {
 		return -3;
@@ -95,7 +95,7 @@ long inject_syscall(struct trace *t, long num, long a, long b, long c, long d, l
 	return regs.rax;
 }
 
-size_t __tracee_alloc_shared_page(struct trace *t, size_t len)
+size_t __tracee_alloc_shared_page(struct thread_tr *t, size_t len)
 {
 	/* we're treating this as a arena allocator, because we
 	 * assume the memory gets freed soon after a syscall injection */
@@ -108,12 +108,12 @@ size_t __tracee_alloc_shared_page(struct trace *t, size_t len)
 	return off;
 }
 
-void tracee_free_shared_page(struct trace *t)
+void tracee_free_shared_page(struct thread_tr *t)
 {
 	t->sp_mark = 0;
 }
 
-uintptr_t tracee_get_shared_page(struct trace *t)
+uintptr_t tracee_get_shared_page(struct thread_tr *t)
 {
 	if(t->shared_page == 0) {
 		/* setting up a "shared" page (it's not really shared, we just know where it is),

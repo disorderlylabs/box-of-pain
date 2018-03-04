@@ -7,14 +7,14 @@ void Sysread::start() {
 		return;
 	}
 	fprintf(stderr, "[%d]: SOCKET %-26s READ  enter\n",
-			find_tracee(frompid)->id, sock_name(sock).c_str());
+			thread->id, sock_name(sock).c_str());
 }
 void Sysread::finish() {
 	if(!sock) {
 		return;
 	}
 	fprintf(stderr, "[%d]: SOCKET %-26s READ  retur\n",
-			find_tracee(frompid)->id, sock_name(sock).c_str());
+			thread->id, sock_name(sock).c_str());
 	
 	if(sock->conn && retval > 0) {
 		std::vector<Syscall *> rcs = sock->conn->read(sock, retval);
