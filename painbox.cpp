@@ -131,12 +131,10 @@ int do_trace()
 		}
 
 		//Set option to make tracing calls easier
-		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD);
+		//Enable tracing on child threads
+		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD|PTRACE_O_TRACECLONE);
 		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
-		//Enable tracing on child threads
-		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACECLONE);
-		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
 		//Continue execution until the next syscall
 		ptrace(PTRACE_SYSCALL, tr->tid, 0, 0);
@@ -233,8 +231,8 @@ int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
 	 * also implement a Sys<whatever> class (e.g. Sysconnect) */
-	SETSYS(recvfrom);
-	SETSYS(sendto);
+	//SETSYS(recvfrom);
+	//SETSYS(sendto);
 	SETSYS(read);
 	SETSYS(write);
 	SETSYS(accept);
@@ -398,6 +396,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
 		}
 	}
+
+	fflush(stderr);
+	fflush(stdout);
 
 	int pass = 0;
 	bool more = true;
