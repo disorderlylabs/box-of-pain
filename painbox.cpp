@@ -7,6 +7,7 @@
 #include <sys/reg.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_map>
 #include <errno.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -60,8 +61,8 @@ struct  thread_tr *find_tracee(int tid)
  * letting us call constructors in an array based on syscall numbers.
  * See the top of main() for how these are assigned. */
 template <typename T>
-Syscall * make(int fpid, long n) { return new T(fpid, n); }
-Syscall * (*syscallmap[1024])(int, long) = { };
+Syscall * make(int fpid, struct trace* t, long n) { return new T(fpid, t, n); }
+Syscall * (*syscallmap[1024])(int, struct trace *, long) = { };
 
 /* wait for a tracee to be ready to report a syscall. There is no
  * explicit order guaranteed by this. It could be the same process
@@ -241,6 +242,7 @@ int main(int argc, char **argv)
 	SETSYS(connect);
 	SETSYS(bind);
 	SETSYS(clone);
+
 
 	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
 

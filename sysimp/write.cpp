@@ -2,7 +2,7 @@
 #include <tracee.h>
 
 void Syswrite::start() { 
-	sock = sock_lookup(frompid, params[0]);
+	sock = sock_lookup(tracee, params[0]);
 	if(!sock) {
 		return;
 	}

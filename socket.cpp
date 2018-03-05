@@ -77,9 +77,9 @@ namespace std {
 static std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
 static std::unordered_map<connid, connection *> connections;
 
-void sock_close(int pid, int sock)
-{
-	sockets[pid][sock] = NULL;
+void sock_close(struct trace * tracee, int sock)
+{	
+	sockets[tracee->id][sock] = NULL;
 }
 
 void sock_set_peer(sock *s, struct sockaddr *peer, socklen_t plen)
@@ -135,11 +135,12 @@ class connection *conn_lookup(struct sockaddr *caddr, socklen_t clen,
 	return connections[id];
 }
 
-class sock *sock_lookup(int pid, int sock)
+class sock *sock_lookup(struct trace * tracee, int sock)
 {
-	if(sockets.find(pid) != sockets.end()) {
-		if(sockets[pid].find(sock) != sockets[pid].end()) {
-			return sockets[pid][sock];
+	if(!tracee) return NULL;
+	if(sockets.find(tracee->id) != sockets.end()) {
+		if(sockets[tracee->id].find(sock) != sockets[tracee->id].end()) {
+			return sockets[tracee->id][sock];
 		}
 	}
 	return NULL;
@@ -150,7 +151,7 @@ std::string sock_name(class sock *s)
 	if(s->name != "") {
 		return s->name;
 	}
-	std::string ret = std::to_string(s->frompid);
+	std::string ret = std::to_string(s->fromtr->id);
 	ret += "::";
 	ret += std::to_string(s->sockfd);
 	ret += "::";
