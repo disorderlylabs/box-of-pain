@@ -20,7 +20,7 @@
 #include "scnames.h"
 #include "sys.h"
 #include "tracee.h"
-#define LOG_SYSCALLS 1
+#define LOG_SYSC
 
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP 128
@@ -163,7 +163,7 @@ int do_trace()
 			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
-#if LOG_SYSCALLS
+#ifdef LOG_SYSCALLS
 			fprintf(stderr, "[%d: %d]: %s entry\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
 #endif
 			tracee->syscall = NULL;
@@ -183,11 +183,19 @@ int do_trace()
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
 			} 
+
+#ifdef LOG_SYSCALLS	
+			else {
+			fprintf(stderr, "[%d: %d]: untraced %s call\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
+			}
+#endif
+
+
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*RAX);
 			if(errno != 0) break;
-#if LOG_SYSCALLS	
+#ifdef LOG_SYSCALLS	
 			fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum], retval);
 #endif
 			if(tracee->syscall) {
