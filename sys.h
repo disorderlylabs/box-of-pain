@@ -36,11 +36,11 @@ class Syscall;
  * include signals, perhaps. Need to think about the semantics of this. */
 class event {
 	public:
-	Syscall *sc;
-	bool entry;
-	/* this vector lists the extra partial-order "parents" of this event */
-	std::vector<event *> extra_parents;
-	event(Syscall *s, bool e) : sc(s), entry(e) {}
+		Syscall *sc;
+		bool entry;
+		/* this vector lists the extra partial-order "parents" of this event */
+		std::vector<event *> extra_parents;
+		event(Syscall *s, bool e) : sc(s), entry(e) {}
 };
 
 struct thread_tr;
@@ -94,6 +94,14 @@ class sockop {
 };
 
 extern std::vector<Syscall *> syscall_list;
+
+class Sysclone : public Syscall {
+	public:
+		Sysclone(int p, long n) : Syscall(p, n) {}
+		void start();
+		void finish();
+
+};
 
 class Sysclose : public Syscall, public sockop {
 	public:
@@ -180,8 +188,9 @@ class Syssendto : public Syscall, public sockop {
 
 		Syssendto(int fpid, long n) : Syscall(fpid, n) {}
 
-        void start();
-        void finish();
+		void start();
+		void finish();
 
 };
+
 

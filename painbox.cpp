@@ -67,17 +67,25 @@ Syscall * (*syscallmap[1024])(int, long) = { };
 struct thread_tr *wait_for_syscall(void)
 {
 	int status;
+	int tid;
 	while(1) {
-		int tid;
 		/* wait for any process */
 		if((tid=waitpid(-1, &status, 0)) == -1) {
 			return NULL;
 		}
 
 		struct thread_tr *tracee = find_tracee(tid);
-		if(tracee == NULL) {
-			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
-			exit(1);
+		if(tracee == NULL) { 
+			//If waitpid returns a process not in the map
+			if(status>>8 == (SIGTRAP | (PTRACE_EVENT_CLONE<<8))){ 
+				//If it's a new thread, keep going, we'll get to it later, when we find the clone()
+				fprintf(stderr, "waitpid returned new thread %d\n", tid);
+				continue;
+			}else {
+				//Otherwise, something went wrong
+				fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
+				exit(1);
+			}
 		}
 
 		tracee->status = status;
@@ -124,8 +132,8 @@ int do_trace()
 		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
 		//Enable tracing on child threads
-		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACECLONE);
-		if(errno != 0) { perror("ptrace SETOPTIONS"); }
+		//		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACECLONE);
+		//		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
 		//Continue execution until the next syscall
 		ptrace(PTRACE_SYSCALL, tr->tid, 0, 0);
@@ -224,6 +232,7 @@ int main(int argc, char **argv)
 	SETSYS(accept);
 	SETSYS(connect);
 	SETSYS(bind);
+	SETSYS(clone);
 
 	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
 
