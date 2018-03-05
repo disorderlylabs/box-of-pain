@@ -20,7 +20,7 @@
 #include "scnames.h"
 #include "sys.h"
 #include "tracee.h"
-#define LOG_SYSCALLS 0
+#define LOG_SYSCALLS 1
 
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP 128
@@ -30,8 +30,7 @@
 
 struct options {
 	bool dump;
-	bool verbose;
-} options = {.dump = false, .verbose = false};
+} options = {.dump = false};
 
 /* list of all traced processes in the system */
 std::vector<struct proc_tr *> proc_list;
@@ -164,10 +163,9 @@ int do_trace()
 			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
-
-			if(LOG_SYSCALLS| options.verbose){
-				fprintf(stderr, "[%d: %d]: %s entry\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
-			}
+#if LOG_SYSCALLS
+			fprintf(stderr, "[%d: %d]: %s entry\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
+#endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
 				/* we're tracking this syscall. Instantiate a new one. */
@@ -189,9 +187,9 @@ int do_trace()
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*RAX);
 			if(errno != 0) break;
-			if(LOG_SYSCALLS | options.verbose){
-				fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum], retval);
-			}
+#if LOG_SYSCALLS	
+			fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum], retval);
+#endif
 			if(tracee->syscall) {
 				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
@@ -240,7 +238,7 @@ int main(int argc, char **argv)
 
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhvTC")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTC")) != EOF) {
 		switch(r) {
 			case 'e':
 				{
@@ -266,9 +264,6 @@ int main(int argc, char **argv)
 				return 0;
 			case 'd':
 				options.dump = true;
-				break;
-			case 'v':
-				options.verbose = true;
 				break;
 			case 'C':
 				printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
