@@ -22,6 +22,10 @@
 #include "tracee.h"
 #define LOG_SYSCALLS 0
 
+#ifndef PTRACE_EVENT_STOP
+#define PTRACE_EVENT_STOP 128
+#endif
+
 /* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
 
 struct options {
@@ -77,7 +81,7 @@ struct thread_tr *wait_for_syscall(void)
 		struct thread_tr *tracee = find_tracee(tid);
 		if(tracee == NULL) { 
 			//If waitpid returns a process not in the map
-			if(status>>8 == (SIGTRAP | (PTRACE_EVENT_CLONE<<8))){ 
+			if(status>>8 == (SIGTRAP | (PTRACE_EVENT_STOP<<8))){ 
 				//If it's a new thread, keep going, we'll get to it later, when we find the clone()
 				fprintf(stderr, "waitpid returned new thread %d\n", tid);
 				continue;
@@ -132,8 +136,8 @@ int do_trace()
 		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
 		//Enable tracing on child threads
-		//		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACECLONE);
-		//		if(errno != 0) { perror("ptrace SETOPTIONS"); }
+		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACECLONE);
+		if(errno != 0) { perror("ptrace SETOPTIONS"); }
 
 		//Continue execution until the next syscall
 		ptrace(PTRACE_SYSCALL, tr->tid, 0, 0);
@@ -147,8 +151,8 @@ int do_trace()
 
 		if(tracee->proc->exited) {
 			num_exited++;
-			fprintf(stderr, "Exit %d (tid %d) exited: %d\n", tracee->id, tracee->proc->id, tracee->proc->ecode);
-			if(num_exited == proc_list.size()) break;
+			fprintf(stderr, "Exit %d (tid %d) exited: %d\n", tracee->proc->id, tracee->tid, tracee->proc->ecode);
+			if(num_exited == thread_list.size()) break;
 			continue;
 		}
 
@@ -161,9 +165,9 @@ int do_trace()
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 
-#if LOG_SYSCALLS
-			fprintf(stderr, "[%d: %d]: %s entry\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum]);
-#endif
+			if(LOG_SYSCALLS| options.verbose){
+				fprintf(stderr, "[%d: %d]: %s entry\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
+			}
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
 				/* we're tracking this syscall. Instantiate a new one. */
@@ -180,16 +184,14 @@ int do_trace()
 				tracee->syscall->uuid = syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
-			} else if (options.verbose) {
-				fprintf(stderr, "[%d: %d]:  %s (unimplemented) call\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum]);
-			}
+			} 
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*RAX);
 			if(errno != 0) break;
-#if LOG_SYSCALLS
-			fprintf(stderr, "[%d: %d]: %s exit -> %d\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum], retval);
-#endif
+			if(LOG_SYSCALLS | options.verbose){
+				fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum], retval);
+			}
 			if(tracee->syscall) {
 				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
@@ -238,7 +240,7 @@ int main(int argc, char **argv)
 
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTC")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhvTC")) != EOF) {
 		switch(r) {
 			case 'e':
 				{
