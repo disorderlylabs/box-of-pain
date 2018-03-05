@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
 #include <sys/reg.h>
 #include <sys/user.h>

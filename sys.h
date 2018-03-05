@@ -105,11 +105,11 @@ class Sysclone : public Syscall {
 
 class Sysclose : public Syscall, public sockop {
 	public:
-		Sysclose(int p, struct trace * t, long n) : Syscall(p, t, n) {}
+		Sysclose(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int fd = params[0];
-			sock = sock_lookup(tracee, fd);
-			sock_close(tracee, fd);
+			sock = sock_lookup(frompid, fd);
+			sock_close(frompid, fd);
 		}
 };
 
@@ -117,7 +117,7 @@ class Sysbind : public Syscall, public sockop {
 	public:
 		struct sockaddr addr;
 		socklen_t len;
-		Sysbind(int p, struct trace *t, long n) : Syscall(p, t, n) {}
+		Sysbind(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int sockfd = params[0];
 			GETOBJ(fromtid, params[1], &addr);
@@ -132,7 +132,7 @@ class Sysconnect : public Syscall, public sockop {
 		class Sysaccept *pair;
 		struct sockaddr addr;
 		socklen_t len;
-		Sysconnect(int p, struct trace *t, long n) : Syscall(p, t, n) {}
+		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
 };
@@ -143,21 +143,21 @@ class Sysaccept : public Syscall, public sockop {
 		struct sock *serversock = NULL;
 		struct sockaddr addr;
 		socklen_t len;
-		Sysaccept(int p, struct trace* t. long n) : Syscall(p, t, n) {}
+		Sysaccept(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
 };
 
 class Syswrite : public Syscall, public sockop {
 	public:
-		Syswrite(int p, struct trace *t, long n) : Syscall(p, t, n) {}
+		Syswrite(int p, long n) : Syscall(p, n) {}
 		void finish();
 		void start();
 };
 
 class Sysread : public Syscall, public sockop {
 	public:
-		Sysread(int fpid, struct trace * t, long n) : Syscall(fpid, t, n) {}
+		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void finish();
 		void start();
 };
@@ -171,7 +171,7 @@ class Sysrecvfrom : public Syscall, public sockop {
 		struct sockaddr *addr;
 		socklen_t *addrlen;
 
-		Sysrecvfrom(int fpid, struct trace *t, long n) : Syscall(fpid, t, n) {}
+		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
 
 		void start();
 		void finish();
@@ -186,7 +186,7 @@ class Syssendto : public Syscall, public sockop {
 		struct sockaddr *dest;
 		socklen_t dest_len;
 
-		Syssendto(int fpid, struct trace * t, long n) : Syscall(fpid, t, n) {}
+		Syssendto(int fpid, long n) : Syscall(fpid, n) {}
 
 		void start();
 		void finish();

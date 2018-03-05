@@ -6,7 +6,7 @@
 #include <cstring>
 void Sysaccept::start() {
 	int fd = params[0];
-	serversock = sock_lookup(tracee, fd);
+	serversock = sock_lookup(frompid, fd);
 }
 
 void Sysaccept::finish() {

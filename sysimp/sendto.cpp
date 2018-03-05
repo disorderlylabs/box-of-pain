@@ -13,7 +13,7 @@ void Syssendto::start() {
 
 	if(dest_len == 0){
 		//With no address, sendto is equivalent to send, which is equivalent to write
-		sock = sock_lookup(tracee, sockfd);
+		sock = sock_lookup(frompid, sockfd);
 		if(!sock) {
 			return;
 		}
