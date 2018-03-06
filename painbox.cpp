@@ -87,7 +87,8 @@ struct thread_tr *wait_for_syscall(void)
 			}else {
 				//Otherwise, something went wrong
 				fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
-				exit(1);
+				continue;
+				//exit(1);
 			}
 		}
 
