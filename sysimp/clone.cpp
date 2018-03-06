@@ -30,8 +30,8 @@ void Sysclone::finish() {
 	thread_list.push_back(tr);
 
 	//Tell the new thread to run
-	ptrace(PTRACE_SYSCALL, newtid, 0, 0);
-	if(errno != 0) { perror("clone: ptrace SYSCALL"); }
+	if( ptrace(PTRACE_SYSCALL, newtid, 0, 0) != 0)
+	 { perror("clone: ptrace SYSCALL"); }
 }
 
 

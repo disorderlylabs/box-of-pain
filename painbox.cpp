@@ -132,13 +132,13 @@ int do_trace()
 
 		//Set option to make tracing calls easier
 		//Enable tracing on child threads
-		ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD|PTRACE_O_TRACECLONE);
-		if(errno != 0) { perror("ptrace SETOPTIONS"); }
+		if (ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD|PTRACE_O_TRACECLONE)
+				!= 0) { perror("ptrace SETOPTIONS"); }
 
 
 		//Continue execution until the next syscall
-		ptrace(PTRACE_SYSCALL, tr->tid, 0, 0);
-		if(errno != 0) { perror("ptrace SYSCALL"); }
+		if(ptrace(PTRACE_SYSCALL, tr->tid, 0, 0)
+				!= 0) { perror("ptrace SYSCALL"); }
 	}
 
 	unsigned num_exited = 0;
@@ -159,6 +159,7 @@ int do_trace()
 
 		if(tracee->sysnum == -1) {
 			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
+			errno = 0;
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 #ifdef LOG_SYSCALLS
@@ -184,6 +185,7 @@ int do_trace()
 
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
+			errno = 0;
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*RAX);
 			if(errno != 0) break;
 #ifdef LOG_SYSCALLS	
