@@ -20,7 +20,7 @@
 #include "scnames.h"
 #include "sys.h"
 #include "tracee.h"
-#define LOG_SYSC
+#define LOG_SYSCALLS
 
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP 128
@@ -181,13 +181,6 @@ int do_trace()
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
 			} 
-
-#ifdef LOG_SYSCALLS	
-			else {
-			fprintf(stderr, "[%d: %d]: untraced %s call\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
-			}
-#endif
-
 
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
