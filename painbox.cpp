@@ -231,8 +231,8 @@ int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
 	 * also implement a Sys<whatever> class (e.g. Sysconnect) */
-	//SETSYS(recvfrom);
-	//SETSYS(sendto);
+	SETSYS(recvfrom);
+	SETSYS(sendto);
 	SETSYS(read);
 	SETSYS(write);
 	SETSYS(accept);

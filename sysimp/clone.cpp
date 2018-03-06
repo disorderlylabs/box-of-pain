@@ -13,7 +13,7 @@ void Sysclone::finish() {
 	int newtid = retval;
 	//ptrace(PTRACE_GETEVENTMSG, fromtid, 0, &newtid);
 
-	fprintf(stderr, "[%d]: clone() creates new thread with tid: %d\n",
+	fprintf(stderr, "[%d]: clone() created new thread with tid: %d\n",
 			thread->id, newtid);
 
 	//Create a tracee object for the new thread
@@ -31,7 +31,7 @@ void Sysclone::finish() {
 
 	//Tell the new thread to run
 	ptrace(PTRACE_SYSCALL, newtid, 0, 0);
-	if(errno != 0) { perror("ptrace SYSCALL"); }
+	if(errno != 0) { perror("clone: ptrace SYSCALL"); }
 }
 
 

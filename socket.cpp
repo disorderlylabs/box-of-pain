@@ -100,12 +100,14 @@ class sock *sock_assoc(struct thread_tr* tr, int _sock)
 {	
 	static long __id = 0;
 	class sock *s = new sock;
+	s->fromthread = tr;
 	s->proc = tr->proc;
+	s->frompid = s->proc->pid;
+	s->fromtid = tr->tid;
 	s->uuid = __id++;
 	s->name = "";
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
-	s->frompid = s->proc->pid;
 	sockets[s->frompid][_sock] = s;
 	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(sockets[s->frompid][_sock]).c_str());
 	return s;
@@ -204,7 +206,7 @@ void sock_discover_addresses(struct sock *sock)
 {
 	if(!(sock->flags & S_ASSOC)) return;
 	
-	struct thread_tr *tracee = find_tracee(sock->fromtid);
+	struct thread_tr *tracee = sock->fromthread;
 	if(!(sock->flags & S_ADDR)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);

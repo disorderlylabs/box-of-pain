@@ -21,6 +21,7 @@ class sock {
 		int sockfd;
 		int frompid; //The process within which the socket exists
 		struct proc_tr *proc; 
+		struct thread_tr *fromthread; 
 		int fromtid; //The thread which created the socket. Should only be used during socket creation
 		struct connection *conn;
 		struct noconnection *nconn;
