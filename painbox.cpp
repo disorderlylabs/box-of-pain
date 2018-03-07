@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/syscall.h>
 #include <functional>
@@ -63,6 +64,13 @@ template <typename T>
 Syscall * make(int fpid, long n) { return new T(fpid, n); }
 Syscall * (*syscallmap[1024])(int, long) = { };
 
+
+//A means to end the process and dump out the graph, in case no elegant way to do so exists in the tracees.
+volatile bool keyboardinterrupt = false;
+void keyboardinterrupthandler(int signum){
+	keyboardinterrupt = true;
+}
+
 /* wait for a tracee to be ready to report a syscall. There is no
  * explicit order guaranteed by this. It could be the same process
  * twice in a row. We'd probably _like_ to see round-robin, but that
@@ -71,7 +79,7 @@ struct thread_tr *wait_for_syscall(void)
 {
 	int status;
 	int tid;
-	while(1) {
+	while(!keyboardinterrupt) {
 		/* wait for any process */
 		if((tid=waitpid(-1, &status, 0)) == -1) {
 			return NULL;
@@ -79,17 +87,21 @@ struct thread_tr *wait_for_syscall(void)
 
 		struct thread_tr *tracee = find_tracee(tid);
 		if(tracee == NULL) { 
+			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
+			continue;
+			/*
 			//If waitpid returns a process not in the map
 			if(status>>8 == (SIGTRAP | (PTRACE_EVENT_STOP<<8))){ 
-				//If it's a new thread, keep going, we'll get to it later, when we find the clone()
-				fprintf(stderr, "waitpid returned new thread %d\n", tid);
-				continue;
+			//If it's a new thread, keep going, we'll get to it later, when we find the clone()
+			fprintf(stderr, "waitpid returned new thread %d\n", tid);
+			continue;
 			}else {
-				//Otherwise, something went wrong
-				fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
-				continue;
-				//exit(1);
+			//Otherwise, something went wrong
+			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
+			continue;
+			//exit(1);
 			}
+			*/
 		}
 
 		tracee->status = status;
@@ -106,6 +118,7 @@ struct thread_tr *wait_for_syscall(void)
 		/* otherwise, tell the tracee to continue until it hits a syscall */
 		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 	}
+	return NULL;
 }
 
 int do_trace()
@@ -180,7 +193,7 @@ int do_trace()
 				tracee->syscall->exit_event = e;
 
 				tracee->syscall->uuid = syscall_list.size();
-				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->event_seq.size());
+				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->proc->event_seq.size());
 				syscall_list.push_back(tracee->syscall);
 			} 
 
@@ -235,6 +248,8 @@ int main(int argc, char **argv)
 	SETSYS(connect);
 	SETSYS(bind);
 	SETSYS(clone);
+
+	signal(SIGINT, keyboardinterrupthandler);
 
 	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
 

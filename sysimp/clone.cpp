@@ -13,13 +13,13 @@ void Sysclone::finish() {
 	int newtid = retval;
 	//ptrace(PTRACE_GETEVENTMSG, fromtid, 0, &newtid);
 
-	fprintf(stderr, "[%d]: clone() created new thread with tid: %d\n",
-			thread->id, newtid);
+	fprintf(stderr, "[%d : %d]: clone() created new thread with tid: %d\n",
+			thread->id, thread->tid, newtid);
 
 	//Create a tracee object for the new thread
 	struct thread_tr *tr = new thread_tr();
 	tr->sysnum = -1; //we're not in a syscall to start.
-	tr->syscall_rip = -1;
+	tr->syscall_rip = 0;  //NOTE: This differs from the regular initialization
 	tr->shared_page = 0;
 	tr->sp_mark = 0;
 	tr->syscall = NULL;
