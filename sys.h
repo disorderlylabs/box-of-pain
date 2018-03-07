@@ -100,7 +100,6 @@ class Sysclone : public Syscall {
 		Sysclone(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
-
 };
 
 class Sysclose : public Syscall, public sockop {
