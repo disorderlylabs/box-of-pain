@@ -391,7 +391,7 @@ int main(int argc, char **argv)
 			}
 			/* wait for the tracer to get us going later (in do_trace) */
 			raise(SIGSTOP);
-			printf("Running: %s %u\n", argv[optind], getpid());
+			fprintf(stderr, "Running: %s %u\n", argv[optind], getpid());
 			if(execvp(argv[optind], argv + optind) == -1) {
 				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}
@@ -403,10 +403,14 @@ int main(int argc, char **argv)
 	}
 	do_trace();
 	/* done tracing, collect errors */
-	for(auto ptr : proc_list) {
-		if(ptr->ecode != 0) {
-			fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
-		}
+	if(!keyboardinterrupt){
+		for(auto ptr : proc_list) {
+			if(ptr->ecode != 0) {
+				fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
+			}
+		}}
+	else{
+		fprintf(stderr, "Tracer recieved interrupt\n");
 	}
 
 	fflush(stderr);
@@ -448,8 +452,8 @@ int main(int argc, char **argv)
 				std::string sockinfo = "";
 				if(auto clone = dynamic_cast<Sysclone *>(e->sc)){
 					if(e->entry)
-					fprintf(dotdefs, "x%s -> start%d [constraint=\"true\"];\n",
-							e->sc->localid.c_str(), (int)clone->retval);
+						fprintf(dotdefs, "x%s -> start%d [constraint=\"true\"];\n",
+								e->sc->localid.c_str(), (int)clone->retval);
 				}	
 				if(auto sop = dynamic_cast<sockop *>(e->sc)) {
 					if(sop->get_socket())
@@ -481,9 +485,16 @@ int main(int argc, char **argv)
 				}
 			}
 			fprintf(dotout, "exit%d;\n", tr->tid);
-			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
-					tr->tid, tr->proc->ecode, tr->proc->ecode == 0 ? "#1111aa22" : "#ff111188");
-			printf(" Exited with %d\n", tr->proc->ecode);
+			if(!keyboardinterrupt){
+				fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
+						tr->tid, tr->proc->ecode, tr->proc->ecode == 0 ? "#1111aa22" : "#ff111188");
+				printf(" Exited with %d\n", tr->proc->ecode);
+			} else {
+				fprintf(dotdefs, "exit%d [label=\"Interrupted\",style=\"filled\",fillcolor=\"%s\"];\n",
+						tr->tid, "#1111aa22");
+
+			}
+
 		}
 		fprintf(dotout, "\n}\n");
 		fclose(dotdefs);
