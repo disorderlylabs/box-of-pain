@@ -67,7 +67,7 @@ Syscall * (*syscallmap[1024])(int, long) = { };
 
 //A means to end the process and dump out the graph, in case no elegant way to do so exists in the tracees.
 volatile bool keyboardinterrupt = false;
-void keyboardinterrupthandler(int signum){
+void keyboardinterrupthandler(int signum __attribute__((unused))){
 	keyboardinterrupt = true;
 }
 
@@ -245,6 +245,7 @@ int main(int argc, char **argv)
 	SETSYS(read);
 	SETSYS(write);
 	SETSYS(accept);
+	SETSYS(accept4);
 	SETSYS(connect);
 	SETSYS(bind);
 	SETSYS(clone);

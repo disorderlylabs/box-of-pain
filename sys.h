@@ -147,6 +147,12 @@ class Sysaccept : public Syscall, public sockop {
 		void finish();
 };
 
+class Sysaccept4 : public Sysaccept {
+	public:
+		Sysaccept4(int p, long n) : Sysaccept(p, n) {}
+};
+
+
 class Syswrite : public Syscall, public sockop {
 	public:
 		Syswrite(int p, long n) : Syscall(p, n) {}
