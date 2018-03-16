@@ -13,6 +13,7 @@ struct proc_tr {
 	int ecode;
 	bool exited;
 	std::vector<event *> event_seq;
+	std::vector<thread_tr *> proc_thread_list;
 	char *invoke;
 };
 

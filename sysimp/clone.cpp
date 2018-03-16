@@ -28,6 +28,7 @@ void Sysclone::finish() {
 	tr->tid = newtid;
 	traces[tr->tid] = tr;
 	thread_list.push_back(tr);
+	thread->proc->proc_thread_list.push_back(tr);
 
 	//Tell the new thread to run
 	if( ptrace(PTRACE_SYSCALL, newtid, 0, 0) != 0)

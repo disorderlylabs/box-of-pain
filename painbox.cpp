@@ -275,6 +275,7 @@ int main(int argc, char **argv)
 					tr->proc = ptr;
 					ptr->invoke = strdup(optarg);
 					thread_list.push_back(tr);
+					ptr->proc_thread_list.push_back(tr);
 					proc_list.push_back(ptr);
 				} break;
 			case 'h':
@@ -372,6 +373,7 @@ int main(int argc, char **argv)
 					ptr->pid = pid;
 					tr->proc = ptr;
 					thread_list.push_back(tr);
+					ptr->proc_thread_list.push_back(tr);
 					proc_list.push_back(ptr);
 				}
 				closedir(trdir);
@@ -447,6 +449,7 @@ int main(int argc, char **argv)
 			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
 
 			fprintf(dotout, "start%d -> ", tr->tid);
+			fprintf(dotdefs, "subgraph cluster_{ \n");
 			fprintf(dotdefs, "start%d [label=\"%s\",style=\"filled\",fillcolor=\"#1111aa22\"];\n", tr->tid, tr->proc->invoke);
 			for(auto e : tr->event_seq) {
 				std::string sockinfo = "";
@@ -494,7 +497,7 @@ int main(int argc, char **argv)
 						tr->tid, "#1111aa22");
 
 			}
-
+			fprintf(dotdefs, "}\n");
 		}
 		fprintf(dotout, "\n}\n");
 		fclose(dotdefs);
