@@ -8,7 +8,7 @@ SOURCES=painbox.cpp helper.cpp socket.cpp $(addprefix sysimp/,read.cpp write.cpp
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender thread
+EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender
 EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
 
 all: painbox $(EXAMPLES)

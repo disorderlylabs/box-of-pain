@@ -8,9 +8,14 @@ tracer === the main box--of--pain process, which traces the others
 
 
 Use:
+Containers must be linked with the same pid namespace, and a shared /tracees directory.
+Within a container, the following options are available:
+	painbox [-d] -T
+		Launch the tracer process. Do this first, then launch the tracees, then tell the tracer to continue (currently enter on stdin).
 	painbox -C program [args]
-		Launch a program to be traced in containerized mode. Prints its own pid and does not continue until given a signal
-	painbox -T
-		Launch an interactive tracer mode. Takes in name pid pairs until told given ^D, then runs/traces them.
+		Launch a program to be traced in containerized mode. Prints its own pid to the /tracees directory and waits for a signal from the tracer.
 
+TODO:
+
+Make a more general docker image. Ideally, it could be built on top of the image to be traced, and possibly inherit its entrypoints.
 
