@@ -25,6 +25,7 @@ struct thread_tr {
 	Syscall *syscall;
 	struct proc_tr *proc;
 	std::vector<event *> event_seq;
+	/* TODO: this stuff may be broken for threads */
 	uint64_t syscall_rip;
 	uintptr_t shared_page;
 	size_t sp_mark;
