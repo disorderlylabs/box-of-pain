@@ -478,8 +478,8 @@ int main(int argc, char **argv)
 					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
 					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
 							e->sc->localid.c_str(), tr->tid,
-							syscall_names[e->sc->number], "",
-							sockinfo.c_str(), tr->tid, "#00ff0011");
+							syscall_names[e->sc->number],
+							sockinfo.c_str(), "", tr->tid, "#00ff0011");
 
 					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
 							e->sc->localid.c_str(), tr->tid,
@@ -540,8 +540,8 @@ int main(int argc, char **argv)
 					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
 					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
 							e->sc->localid.c_str(), proc->id,
-							syscall_names[e->sc->number], "",
-							sockinfo.c_str(), proc->id, "#00ff0011");
+							syscall_names[e->sc->number],
+							sockinfo.c_str(), "", proc->id, "#00ff0011");
 
 
 					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
