@@ -44,6 +44,12 @@ std::vector<Syscall *> syscall_list;
 std::unordered_map<int, struct thread_tr *> traces; 
 
 
+enum opmode {
+	OPMODE_TRACE,
+	OPMODE_FOLLOW,
+} current_mode = OPMODE_TRACE;
+
+
 struct  thread_tr *find_tracee(int tid)
 {
 	auto trit = traces.find(tid);
@@ -119,6 +125,19 @@ struct thread_tr *wait_for_syscall(void)
 		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 	}
 	return NULL;
+}
+
+void process_event(struct thread_tr *tracee)
+{
+	/* depending on the opmode, we're either following along or tracing a new
+	 * graph. */
+
+	if(current_mode == OPMODE_FOLLOW) {
+		bool felloff = true;
+		if(felloff) {
+			current_mode = OPMODE_TRACE;
+		}
+	}
 }
 
 int do_trace()
@@ -221,6 +240,9 @@ int do_trace()
 			}
 			tracee->sysnum = -1;
 		}
+
+		process_event(tracee);
+
 		/* ...and continue */
 		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 	}
@@ -256,12 +278,22 @@ int main(int argc, char **argv)
 
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTC")) != EOF) {
+	char *follow_file_path = NULL;
+	while((r = getopt(argc, argv, "e:dhTCf")) != EOF) {
 		switch(r) {
+			case 'f':
+				current_mode = OPMODE_FOLLOW;
+				follow_file_path = optarg;
+				break;
 			case 'e':
 				{
-					if(containerization==MODE_NULL) containerization = MODE_R;
-					if(containerization!=MODE_R) {usage(); return 1;}
+					if(containerization==MODE_NULL) {
+						containerization = MODE_R;
+					}
+					if(containerization!=MODE_R) {
+						usage();
+						return 1;
+					}
 					struct thread_tr *tr = new thread_tr();
 					struct proc_tr * ptr = new proc_tr();
 					tr->id = proc_list.size();
