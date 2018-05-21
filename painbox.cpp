@@ -21,6 +21,7 @@
 #include "scnames.h"
 #include "sys.h"
 #include "tracee.h"
+#include "run.h"
 #define LOG_SYSCALLS
 
 #ifndef PTRACE_EVENT_STOP
@@ -33,27 +34,17 @@ struct options {
 	bool dump;
 } options = {.dump = false};
 
-/* list of all traced processes in the system */
-std::vector<struct proc_tr *> proc_list;
-/* list of all traced threads in the system */
-std::vector<struct thread_tr *> thread_list;
-/* list of all syscalls that happen, in order that they are observed */
-std::vector<Syscall *> syscall_list;
-
-/*A map of tids to thread structures*/
-std::unordered_map<int, struct thread_tr *> traces; 
-
-
 enum opmode {
 	OPMODE_TRACE,
 	OPMODE_FOLLOW,
 } current_mode = OPMODE_TRACE;
 
+struct run current_run;
 
 struct  thread_tr *find_tracee(int tid)
 {
-	auto trit = traces.find(tid);
-	if( trit != traces.end()) 
+	auto trit = current_run.traces.find(tid);
+	if( trit != current_run.traces.end()) 
 	{
 		struct thread_tr * tracee = trit->second;
 		return tracee;
@@ -146,12 +137,12 @@ int do_trace()
 	 * status (should be blocked on their SIGSTOP from when they kick off)
 	 * and then telling them to continue until they hit a syscall */
 
-	for(auto tr : thread_list) {
+	for(auto tr : current_run.thread_list) {
 		fprintf(stderr, "init trace on %d\n", tr->tid);
 		int status;
 		tr->sysnum = -1;
 
-		traces[tr->tid] = tr;
+		current_run.traces[tr->tid] = tr;
 
 		//Begin tracing
 		if(ptrace(PTRACE_SEIZE, tr->tid, 0, 0) != 0){
@@ -182,7 +173,7 @@ int do_trace()
 		if(tracee->proc->exited) {
 			num_exited++;
 			fprintf(stderr, "Exit %d (tid %d) exited: %d\n", tracee->proc->id, tracee->tid, tracee->proc->ecode);
-			if(num_exited == thread_list.size()) break;
+			if(num_exited == current_run.thread_list.size()) break;
 			continue;
 		}
 
@@ -211,9 +202,9 @@ int do_trace()
 				e = new event(tracee->syscall, false);
 				tracee->syscall->exit_event = e;
 
-				tracee->syscall->uuid = syscall_list.size();
+				tracee->syscall->uuid = current_run.syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->proc->event_seq.size());
-				syscall_list.push_back(tracee->syscall);
+				current_run.syscall_list.push_back(tracee->syscall);
 			} 
 
 		} else {
@@ -296,8 +287,8 @@ int main(int argc, char **argv)
 					}
 					struct thread_tr *tr = new thread_tr();
 					struct proc_tr * ptr = new proc_tr();
-					tr->id = proc_list.size();
-					ptr->id = proc_list.size();
+					tr->id = current_run.proc_list.size();
+					ptr->id = current_run.proc_list.size();
 					tr->sysnum = -1; //we're not in a syscall to start.
 					tr->syscall_rip = -1;
 					tr->shared_page = 0;
@@ -306,9 +297,9 @@ int main(int argc, char **argv)
 					ptr->exited = false;
 					tr->proc = ptr;
 					ptr->invoke = strdup(optarg);
-					thread_list.push_back(tr);
+					current_run.thread_list.push_back(tr);
 					ptr->proc_thread_list.push_back(tr);
-					proc_list.push_back(ptr);
+					current_run.proc_list.push_back(ptr);
 				} break;
 			case 'h':
 				usage();
@@ -336,7 +327,7 @@ int main(int argc, char **argv)
 			usage();
 			return 1;
 		case MODE_R:
-			for(auto tr : thread_list) {
+			for(auto tr : current_run.thread_list) {
 				/* parse the args, and start the process */
 				char **args = (char **)calloc(2, sizeof(char *));
 				char *prog = strdup(strtok(tr->proc->invoke, ","));
@@ -392,8 +383,8 @@ int main(int argc, char **argv)
 					fclose(trfile);
 					struct thread_tr *tr = new thread_tr();
 					struct proc_tr *ptr = new proc_tr();
-					tr->id = proc_list.size();
-					ptr->id = proc_list.size();
+					tr->id = current_run.proc_list.size();
+					ptr->id = current_run.proc_list.size();
 					tr->sysnum = -1; //we're not in a syscall to start.
 					tr->syscall_rip = -1;
 					tr->shared_page = 0;
@@ -404,9 +395,9 @@ int main(int argc, char **argv)
 					tr->tid = pid;
 					ptr->pid = pid;
 					tr->proc = ptr;
-					thread_list.push_back(tr);
+					current_run.thread_list.push_back(tr);
 					ptr->proc_thread_list.push_back(tr);
-					proc_list.push_back(ptr);
+					current_run.proc_list.push_back(ptr);
 				}
 				closedir(trdir);
 			}
@@ -438,7 +429,7 @@ int main(int argc, char **argv)
 	do_trace();
 	/* done tracing, collect errors */
 	if(!keyboardinterrupt){
-		for(auto ptr : proc_list) {
+		for(auto ptr : current_run.proc_list) {
 			if(ptr->ecode != 0) {
 				fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
 			}
@@ -457,7 +448,7 @@ int main(int argc, char **argv)
 	while(more) {
 		fprintf(stderr, "post-processing pass %d\n", pass);
 		more = false;
-		for(auto tr : proc_list) {
+		for(auto tr : current_run.proc_list) {
 			for(auto e : tr->event_seq) {
 				if(e->entry) {
 					more = e->sc->post_process(pass) || more;
@@ -480,7 +471,7 @@ int main(int argc, char **argv)
 		FILE *dotdefs = fopen("thread.inc", "w");
 		fprintf(dotout, "digraph trace {\ninclude(`thread.inc')\n");
 		fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
-		for(auto tr : thread_list) {
+		for(auto tr : current_run.thread_list) {
 			printf("Trace of %s\n", tr->proc->invoke);
 			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
 
@@ -547,7 +538,7 @@ int main(int argc, char **argv)
 		dotdefs = fopen("proc.inc", "w");
 		fprintf(dotout, "digraph trace {\ninclude(`proc.inc')\n");
 		fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
-		for(auto proc : proc_list) {
+		for(auto proc : current_run.proc_list) {
 			printf("Trace of %s\n", proc->invoke);
 			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
 

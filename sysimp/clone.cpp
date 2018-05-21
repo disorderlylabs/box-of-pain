@@ -2,8 +2,7 @@
 #include <tracee.h>
 #include <unordered_map>
 
-extern std::vector<struct thread_tr *> thread_list;
-extern std::unordered_map<int, struct thread_tr *> traces;
+#include "run.h"
 
 void Sysclone::start() {}
 
@@ -26,8 +25,8 @@ void Sysclone::finish() {
 	tr->proc = thread->proc;
 	tr->id = thread->id;
 	tr->tid = newtid;
-	traces[tr->tid] = tr;
-	thread_list.push_back(tr);
+	current_run.traces[tr->tid] = tr;
+	current_run.thread_list.push_back(tr);
 	thread->proc->proc_thread_list.push_back(tr);
 
 	//Tell the new thread to run
