@@ -14,6 +14,7 @@
 #define SYSCALL_INSTRUCTION_SZ 2
 void register_syscall_rip(struct thread_tr *t)
 {
+	assert(t->active);
 	/* to inject syscalls, we'll need to find a syscall instruction in the process to
 	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
 	 * anyway) and then figure out the RIP of the process (and subtract the size of the
@@ -29,6 +30,7 @@ void register_syscall_rip(struct thread_tr *t)
 
 long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long d, long e, long f)
 {
+	assert(t->active);
 	if(t->syscall_rip == 0 || (long)t->syscall_rip == -1) {
 		/* dont inject a syscall before we detect the first syscall. Simple! */
 		fprintf(stderr, "failed to inject syscall into tracee %d\n", t->id);
@@ -97,6 +99,7 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 
 size_t __tracee_alloc_shared_page(struct thread_tr *t, size_t len)
 {
+	assert(t->active);
 	/* we're treating this as a arena allocator, because we
 	 * assume the memory gets freed soon after a syscall injection */
 	if(t->sp_mark + len >= 0x1000) {
@@ -110,11 +113,13 @@ size_t __tracee_alloc_shared_page(struct thread_tr *t, size_t len)
 
 void tracee_free_shared_page(struct thread_tr *t)
 {
+	assert(t->active);
 	t->sp_mark = 0;
 }
 
 uintptr_t tracee_get_shared_page(struct thread_tr *t)
 {
+	assert(t->active);
 	if(t->shared_page == 0) {
 		/* setting up a "shared" page (it's not really shared, we just know where it is),
 		 * is as simple as injecting mmap into the process! */

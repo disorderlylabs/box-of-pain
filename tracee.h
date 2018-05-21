@@ -22,6 +22,7 @@ struct thread_tr {
 	int tid;
 	int status;
 	long sysnum;
+	bool active;
 	Syscall *syscall;
 	struct proc_tr *proc;
 	std::vector<event *> event_seq;

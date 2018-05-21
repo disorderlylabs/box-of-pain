@@ -293,6 +293,7 @@ int main(int argc, char **argv)
 					tr->syscall_rip = -1;
 					tr->shared_page = 0;
 					tr->sp_mark = 0;
+					tr->active = true;
 					tr->syscall = NULL;
 					ptr->exited = false;
 					tr->proc = ptr;
@@ -388,6 +389,7 @@ int main(int argc, char **argv)
 					tr->sysnum = -1; //we're not in a syscall to start.
 					tr->syscall_rip = -1;
 					tr->shared_page = 0;
+					tr->active = true;
 					tr->sp_mark = 0;
 					tr->syscall = NULL;
 					ptr->exited = false;

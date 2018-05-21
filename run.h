@@ -2,6 +2,9 @@
 
 #include <unordered_map>
 
+struct run;
+extern struct run current_run;
+
 #include "helper.h"
 #include "sockets.h"
 #include "sys.h"

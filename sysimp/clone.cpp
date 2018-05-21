@@ -23,6 +23,7 @@ void Sysclone::finish() {
 	tr->sp_mark = 0;
 	tr->syscall = NULL;
 	tr->proc = thread->proc;
+	tr->active = true;
 	tr->id = thread->id;
 	tr->tid = newtid;
 	current_run.traces[tr->tid] = tr;
