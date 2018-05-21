@@ -10,76 +10,12 @@
 #include "helper.h"
 #include "tracee.h"
 #include "sys.h"
+#include "run.h"
 
-/* test two sockaddrs for equality */
-static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
+
+void sock_close(struct run *run, int pid, int sock)
 {
-	if(a->sa_family != b->sa_family) return false;
-	struct sockaddr_in *ain = (struct sockaddr_in *)a;
-	struct sockaddr_in *bin = (struct sockaddr_in *)b;
-	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
-}
-
-/* this is a sockaddr_in pair that identifies a connection */
-class connid {
-	public:
-		connid(struct sockaddr *caddr, socklen_t clen, struct sockaddr *saddr, socklen_t slen) : peer1(*caddr), peer2(*saddr), p1len(clen), p2len(slen) {}
-	bool operator==(const connid &other) const
-	{
-		return p1len == other.p1len
-			&& p2len == other.p2len
-			&& sa_eq(&peer1, &other.peer1)
-			&& sa_eq(&peer2, &other.peer2);
-	}
-	struct sockaddr peer1, peer2;
-	socklen_t p1len, p2len;
-
-	void debug() const {
-		struct sockaddr_in *in = (struct sockaddr_in *)&peer1;
-		fprintf(stderr, "%d::%s:%d", p1len, inet_ntoa(in->sin_addr), ntohs(in->sin_port));
-		in = (struct sockaddr_in *)&peer2;
-		fprintf(stderr, " <=> %d::%s:%d\n", p2len, inet_ntoa(in->sin_addr), ntohs(in->sin_port));
-	}
-};
-
-/* this is a simple hash function. */
-unsigned long
-djb2hash(unsigned char *str, size_t len)
-{
-    unsigned long hash = 5381;
-    int c;
-
-    while (len--) {
-        c = *str++;
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-	}
-
-    return hash;
-}
-
-namespace std {
-	/* implement hash for connid. Man, I miss Rust syntax sometimes... */
-	template <> struct hash<connid>
-	{
-		size_t operator()(const connid &x) const
-		{
-			return 0; /* TODO: remove this. There's a bug in the below hash function, but it's the general idea.
-			If we try to use the code below, it doesn't work. But it's also not well tested, since I developed this
-			using the 'world's best hash function': return 0. */
-			return (((djb2hash((unsigned char *)&x.peer1, x.p1len)
-						^ (djb2hash((unsigned char *)&x.peer2, x.p2len) << 1)) >> 1)
-						^ (hash<socklen_t>()(x.p1len) << 1) >> 1)
-						^ (hash<socklen_t>()(x.p2len) << 1);
-		}
-	};
-}
-
-static std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
-static std::unordered_map<connid, connection *> connections;
-
-void sock_close(int pid, int sock)
-{
-	sockets[pid][sock] = NULL;
+	run->sockets[pid][sock] = NULL;
 }
 
 void sock_set_peer(sock *s, struct sockaddr *peer, socklen_t plen)
@@ -96,7 +32,7 @@ void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len)
 	s->flags |= S_ADDR;
 }
 
-class sock *sock_assoc(struct thread_tr* tr, int _sock)
+class sock *sock_assoc(struct run *run, struct thread_tr *tr, int _sock)
 {	
 	static long __id = 0;
 	class sock *s = new sock;
@@ -108,15 +44,15 @@ class sock *sock_assoc(struct thread_tr* tr, int _sock)
 	s->name = "";
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
-	sockets[s->frompid][_sock] = s;
-	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(sockets[s->frompid][_sock]).c_str());
+	run->sockets[s->frompid][_sock] = s;
+	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(run->sockets[s->frompid][_sock]).c_str());
 	return s;
 }
 
 /* lookup socket by address. TODO: use the sa_eq function */
-class sock *sock_lookup_addr(struct sockaddr *addr, socklen_t addrlen)
+class sock *sock_lookup_addr(struct run *run, struct sockaddr *addr, socklen_t addrlen)
 {
-	for(auto sm : sockets) {
+	for(auto sm : run->sockets) {
 		for(auto p : sm.second) {
 			class sock *sock = p.second;
 			if((sock->flags & S_ASSOC) && addrlen == sock->addrlen && sa_eq(addr, &sock->addr)) {
@@ -127,21 +63,21 @@ class sock *sock_lookup_addr(struct sockaddr *addr, socklen_t addrlen)
 	return NULL;
 }
 
-class connection *conn_lookup(struct sockaddr *caddr, socklen_t clen,
+class connection *conn_lookup(struct run *run, struct sockaddr *caddr, socklen_t clen,
 		struct sockaddr *saddr, socklen_t slen, bool create)
 {
 	connid id(caddr, clen, saddr, slen);
-	if(connections.find(id) == connections.end()) {
-		return create ? connections[id] = new connection() : NULL;
+	if(run->connections.find(id) == run->connections.end()) {
+		return create ? run->connections[id] = new connection() : NULL;
 	}
-	return connections[id];
+	return run->connections[id];
 }
 
-class sock *sock_lookup(int pid, int sock)
+class sock *sock_lookup(struct run *run, int pid, int sock)
 {
-	if(sockets.find(pid) != sockets.end()) {
-		if(sockets[pid].find(sock) != sockets[pid].end()) {
-			return sockets[pid][sock];
+	if(run->sockets.find(pid) != run->sockets.end()) {
+		if(run->sockets[pid].find(sock) != run->sockets[pid].end()) {
+			return run->sockets[pid][sock];
 		}
 	}
 	return NULL;
@@ -149,6 +85,7 @@ class sock *sock_lookup(int pid, int sock)
 
 std::string sock_name(class sock *s)
 {
+	/* TODO: run name? */
 	if(s->name != "") {
 		return s->name;
 	}

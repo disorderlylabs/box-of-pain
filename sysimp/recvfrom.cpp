@@ -14,7 +14,7 @@ void Sysrecvfrom::start() {
 
 	if(addr == NULL){
 
-		sock = sock_lookup(frompid, sockfd);
+		sock = sock_lookup(&current_run, frompid, sockfd);
 		if(!sock) {
 			return;
 		}
@@ -24,7 +24,7 @@ void Sysrecvfrom::start() {
 		else
 	{
 
-		sock = sock_lookup(frompid, sockfd);
+		sock = sock_lookup(&current_run, frompid, sockfd);
 		if(!sock) {
 			return;
 		}

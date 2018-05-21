@@ -8,6 +8,7 @@
 #include "sockets.h"
 #include "helper.h"
 #include "tracee.h"
+#include "run.h"
 
 #define MAX_PARAMS 6 /* linux has 6 register parameters */
 enum syscall_state {
@@ -107,8 +108,8 @@ class Sysclose : public Syscall, public sockop {
 		Sysclose(int p, long n) : Syscall(p, n) {}
 		void start() {
 			int fd = params[0];
-			sock = sock_lookup(frompid, fd);
-			sock_close(frompid, fd);
+			sock = sock_lookup(&current_run, frompid, fd);
+			sock_close(&current_run, frompid, fd);
 		}
 };
 
@@ -121,7 +122,7 @@ class Sysbind : public Syscall, public sockop {
 			int sockfd = params[0];
 			GETOBJ(fromtid, params[1], &addr);
 			len = params[2];
-			sock = sock_assoc(thread , sockfd);
+			sock = sock_assoc(&current_run, thread , sockfd);
 			sock_set_addr(sock, &addr, len);
 		};
 };
