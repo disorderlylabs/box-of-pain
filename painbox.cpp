@@ -266,11 +266,11 @@ int main(int argc, char **argv)
 	signal(SIGINT, keyboardinterrupthandler);
 
 	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
-
+	char *serialize_run = NULL;
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
 	char *follow_file_path = NULL;
-	while((r = getopt(argc, argv, "e:dhTCf")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTCfs:")) != EOF) {
 		switch(r) {
 			case 'f':
 				current_mode = OPMODE_FOLLOW;
@@ -316,6 +316,9 @@ int main(int argc, char **argv)
 			case 'T':
 				printf("Entering containerized mode as Tracer\n");
 				containerization = MODE_T;
+				break;
+			case 's':
+				serialize_run = optarg;
 				break;
 			default:
 				usage();
@@ -458,6 +461,16 @@ int main(int argc, char **argv)
 			}
 		}
 		pass++;
+	}
+
+	if(serialize_run) {
+		FILE *sout = fopen(serialize_run, "w+");
+		if(!sout) {
+			fprintf(stderr, "failed to open run serialize file for writing\n");
+		} else {
+			run_serialize(&current_run, sout);
+			fclose(sout);
+		}
 	}
 
 	if(options.dump) {

@@ -45,6 +45,7 @@ class sock *sock_assoc(struct run *run, struct thread_tr *tr, int _sock)
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
 	run->sockets[s->frompid][_sock] = s;
+	run->sock_list.push_back(s);
 	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(run->sockets[s->frompid][_sock]).c_str());
 	return s;
 }
@@ -63,12 +64,18 @@ class sock *sock_lookup_addr(struct run *run, struct sockaddr *addr, socklen_t a
 	return NULL;
 }
 
+/* TODO (major): What about repeated connections? */
 class connection *conn_lookup(struct run *run, struct sockaddr *caddr, socklen_t clen,
 		struct sockaddr *saddr, socklen_t slen, bool create)
 {
 	connid id(caddr, clen, saddr, slen);
 	if(run->connections.find(id) == run->connections.end()) {
-		return create ? run->connections[id] = new connection() : NULL;
+		if(create) {
+			run->connections[id] = new connection();
+			run->connection_list.push_back(run->connections[id]);
+			return run->connections[id];
+		}
+		return NULL;
 	}
 	return run->connections[id];
 }

@@ -20,6 +20,9 @@ struct run {
 	/* list of all syscalls that happen, in order that they are observed */
 	std::vector<Syscall *> syscall_list;
 
+	std::vector<sock *> sock_list;
+
+	std::vector<connection *> connection_list;
 	/*A map of tids to thread structures*/
 	std::unordered_map<int, struct thread_tr *> traces; 
 
@@ -28,4 +31,7 @@ struct run {
 };
 
 extern struct run current_run;
+
+#include <cstdio>
+void run_serialize(struct run *run, FILE *f);
 
