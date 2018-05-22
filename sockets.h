@@ -30,6 +30,8 @@ class sock {
 		struct connection *conn;
 		struct noconnection *nconn;
 		sock() { }
+
+		void serialize(FILE *);
 };
 
 class connection {
@@ -60,6 +62,7 @@ class connection {
 	Sysaccept *acc = NULL;
 
 	connection() {}
+	void serialize(FILE *);
 
 	std::vector<Syscall *> read(sock *s, size_t len);
 	void write(sock *s, Syscall *sys, size_t len);

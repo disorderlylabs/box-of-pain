@@ -5,6 +5,7 @@
 struct run;
 extern struct run current_run;
 
+#define SPACE(f, n) fprintf(f, "%*s", n, "")
 #include "helper.h"
 #include "sockets.h"
 #include "sys.h"

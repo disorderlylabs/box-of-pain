@@ -42,6 +42,7 @@ class event {
 		/* this vector lists the extra partial-order "parents" of this event */
 		std::vector<event *> extra_parents;
 		event(Syscall *s, bool e) : sc(s), entry(e) {}
+		void serialize(FILE *f);
 };
 
 struct thread_tr;
@@ -63,11 +64,18 @@ class Syscall {
 		bool ret_success = false;
 		enum syscall_state state;
 
+		virtual void serialize(FILE *f) {
+			fprintf(f, "SYSCALL %d %d %d %s %ld %ld %ld %ld %ld %ld %ld %ld %d\n",
+					uuid, fromtid, frompid, localid.c_str(),
+					number, params[0], params[1], params[2], params[3], params[4],
+					params[5], retval, ret_success);
+		}
+
 		Syscall(int ftid, long num) {
 			fromtid = ftid;
 			state = STATE_CALLED;
 			number = num;
-			for(int i=0;i<MAX_PARAMS;i++) {
+			for(int i=0;i<MAX_PARAMS && ftid;i++) {
 				params[i] = ptrace(PTRACE_PEEKUSER, fromtid, sizeof(long)*param_map[i]);
 			}
 			thread = find_tracee(fromtid);
@@ -92,6 +100,11 @@ class sockop {
 	public:
 		class sock *sock;
 		class sock *get_socket() { return sock; }
+		virtual void serialize(FILE *f) {
+			fprintf(f, "sockop ");
+			SPACE(f, 2);
+			sock->serialize(f);
+		}
 };
 
 extern std::vector<Syscall *> syscall_list;
@@ -125,6 +138,10 @@ class Sysbind : public Syscall, public sockop {
 			sock = sock_assoc(&current_run, thread , sockfd);
 			sock_set_addr(sock, &addr, len);
 		};
+		void serialize(FILE *f) {
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
 };
 
 class Sysconnect : public Syscall, public sockop {
@@ -135,6 +152,9 @@ class Sysconnect : public Syscall, public sockop {
 		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
+		void serialize(FILE *f) {
+			Syscall::serialize(f);
+		}
 };
 
 class Sysaccept : public Syscall, public sockop {
