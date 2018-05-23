@@ -11,6 +11,9 @@ void sock::serialize(FILE *f)
 	/* TODO: name, addr, etc */
 	fprintf(f, "SOCK %ld %d %d %d %d\n",
 			uuid, flags, sockfd, proc->pid, fromthread->tid);
+	fprintf(f, "  addr "); serialize_sockaddr(f, &addr, addrlen);
+	fprintf(f, "\n  peer "); serialize_sockaddr(f, &peer, peerlen);
+	fprintf(f, "\n");
 }
 
 void connection::serialize(FILE *f)
@@ -30,6 +33,23 @@ void serialize_proc(struct proc_tr *p, FILE *f)
 	fprintf(f, "PROCESS %d %d %d %d %s\n",
 			p->id, p->pid, p->ecode, p->exited, p->invoke);
 }
+
+void Sysaccept::serialize(FILE *f)
+{
+	Syscall::serialize(f);
+	sockop::serialize(f);
+	SPACE(f, 2);
+	fprintf(f, "pair %d\n", pair ? pair->uuid : -1);
+	SPACE(f, 2);
+	fprintf(f, "serversock %ld\n", serversock ? serversock->uuid : -1);
+}
+void Sysconnect::serialize(FILE *f) {
+	Syscall::serialize(f);
+	SPACE(f, 2);
+	fprintf(f, "pair %d\n", pair ? pair->uuid : -1);
+}
+
+
 
 void run_serialize(struct run *run, FILE *f)
 {

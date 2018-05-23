@@ -102,9 +102,9 @@ class sockop {
 		class sock *get_socket() { return sock; }
 		virtual void serialize(FILE *f) {
 			if(!sock) return;
-			fprintf(f, "sockop ");
 			SPACE(f, 2);
-			sock->serialize(f);
+			fprintf(f, "sockop %ld\n", sock->uuid);
+			//sock->serialize(f);
 		}
 };
 
@@ -141,7 +141,7 @@ class Sysbind : public Syscall, public sockop {
 			int sockfd = params[0];
 			GETOBJ(fromtid, params[1], &addr);
 			len = params[2];
-			sock = sock_assoc(&current_run, thread , sockfd);
+			sock = sock_assoc(&current_run, thread, sockfd);
 			sock_set_addr(sock, &addr, len);
 		};
 		void serialize(FILE *f) {
@@ -156,9 +156,7 @@ class Sysconnect : public Syscall, public sockop {
 		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
-		void serialize(FILE *f) {
-			Syscall::serialize(f);
-		}
+		void serialize(FILE *);
 };
 
 class Sysaccept : public Syscall, public sockop {
@@ -168,12 +166,7 @@ class Sysaccept : public Syscall, public sockop {
 		Sysaccept(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
-		void serialize(FILE *f)
-		{
-			Syscall::serialize(f);
-			sockop::serialize(f);
-		}
-
+		void serialize(FILE *);
 };
 
 class Sysaccept4 : public Sysaccept {
@@ -192,7 +185,6 @@ class Syswrite : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
-
 };
 
 class Sysread : public Syscall, public sockop {
