@@ -71,6 +71,7 @@ class connection *conn_lookup(struct run *run, struct sockaddr *caddr, socklen_t
 	if(run->connections.find(id) == run->connections.end()) {
 		if(create) {
 			run->connections[id] = new connection();
+			run->connections[id]->uuid = run->connection_list.size();
 			run->connection_list.push_back(run->connections[id]);
 			return run->connections[id];
 		}

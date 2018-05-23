@@ -18,9 +18,8 @@ void event::serialize(FILE *f)
 
 void sock::serialize(FILE *f)
 {
-	/* TODO: name, addr, etc */
 	fprintf(f, "SOCK %ld %d %d %d %d\n",
-			uuid, flags, sockfd, proc->pid, fromthread->tid);
+			uuid, flags, sockfd, proc->id, fromthread->id);
 	fprintf(f, "  addr "); serialize_sockaddr(f, &addr, addrlen);
 	fprintf(f, "\n  peer "); serialize_sockaddr(f, &peer, peerlen);
 	fprintf(f, "\n");
@@ -28,8 +27,8 @@ void sock::serialize(FILE *f)
 
 void connection::serialize(FILE *f)
 {
-	fprintf(f, "CONN %ld %ld %d %d\n",
-			connside->uuid, accside ? accside->uuid : -1, conn->uuid, acc ? acc->uuid : -1);
+	fprintf(f, "CONN %d %ld %ld %d %d\n",
+			uuid, connside->uuid, accside ? accside->uuid : -1, conn->uuid, acc ? acc->uuid : -1);
 }
 
 void serialize_thread(struct thread_tr *t, FILE *f)
@@ -201,13 +200,51 @@ void run_load(struct run *run, FILE *f)
 			sc->run_load(run, f);
 			run->syscall_list.push_back(sc);
 		} else if(startswith(line, "SOCK")) {
+			int uuid, flags, sockfd, procid, thid;
+			sscanf(line, "SOCK %d %d %d %d %d", &uuid, &flags, &sockfd, &procid, &thid);
+			sock *s = growcreate(&run->sock_list, uuid);
+			s->uuid = uuid;
+			s->flags = flags;
+			s->sockfd = sockfd;
+			s->proc = growcreate(&run->proc_list, procid);
+			s->fromthread = growcreate(&run->thread_list, thid);
+			int sz, port;
+			char addr[64];
+			struct sockaddr_in saaddr, sapeer;
+			getline(&line, &ls, f);
+			sscanf(line, "  addr sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			s->addrlen = sz;
+			inet_pton(AF_INET, addr, &saaddr.sin_addr);
+			saaddr.sin_port = port;
+			s->addr = *(struct sockaddr *)&saaddr;
+
+			getline(&line, &ls, f);
+			sscanf(line, "  peer sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			s->peerlen = sz;
+			inet_pton(AF_INET, addr, &sapeer.sin_addr);
+			sapeer.sin_port = port;
+			s->peer = *(struct sockaddr *)&sapeer;
 
 		} else if(startswith(line, "CONN")) {
-
+			int uuid, sysconid, sysaccid;
+			long aid, cid;
+			sscanf(line, "CONN %d %ld %ld %d %d",
+					&uuid, &cid, &aid, &sysconid, &sysaccid);
+			connection *c = growcreate(&run->connection_list, uuid);
+			Sysconnect *syscon = (Sysconnect *)run->syscall_list[sysconid];
+			Sysaccept *sysacc = (Sysaccept *)(sysaccid == -1 ? NULL : run->syscall_list[sysaccid]);
+			sock *cside = growcreate(&run->sock_list, cid);
+			sock *aside = aid == -1 ? NULL : growcreate(&run->sock_list, aid);
+			c->connside = cside;
+			c->accside = aside;
+			c->conn = syscon;
+			c->acc = sysacc;
 		} else {
 			fprintf(stderr, "Cannot parse line: %s", line);
 			exit(1);
 		}
 	}
+
+	/* phase 2: construct unordered maps? */
 }
 

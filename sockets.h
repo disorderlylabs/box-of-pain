@@ -57,6 +57,7 @@ class connection {
 	} ab, ba;
 
 	public:
+	int uuid;
 	class sock *connside = NULL, *accside = NULL;
 	Sysconnect *conn = NULL;
 	Sysaccept *acc = NULL;
@@ -111,7 +112,7 @@ void sock_discover_addresses(struct sock *sock);
 static inline void serialize_sockaddr(FILE *f, struct sockaddr *addr, socklen_t len)
 {
 	struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
-	fprintf(f, "sockaddr_in (%d)%s:%d", len, inet_ntoa(inaddr->sin_addr), inaddr->sin_port);
+	fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
 }
 
 
