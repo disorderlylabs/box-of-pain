@@ -34,13 +34,12 @@ void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len)
 
 class sock *sock_assoc(struct run *run, struct thread_tr *tr, int _sock)
 {	
-	static long __id = 0;
 	class sock *s = new sock;
 	s->fromthread = tr;
 	s->proc = tr->proc;
 	s->frompid = s->proc->pid;
 	s->fromtid = tr->tid;
-	s->uuid = __id++;
+	s->uuid = run->sock_list.size();
 	s->name = "";
 	s->flags |= S_ASSOC;
 	s->sockfd = _sock;
@@ -192,8 +191,8 @@ void connection::__established() {
 	/* if the connection can be determined (both sides have
 	 * witnessed the syscall exit), then add our edges to extra_parents */
 	if(!connside || !accside) return;
-	conn->pair = acc;
-	acc->pair = conn;
+	//conn->pair = acc;
+	//acc->pair = conn;
 	conn->exit_event->extra_parents.push_back(acc->entry_event);
 	acc->exit_event->extra_parents.push_back(conn->entry_event);
 }

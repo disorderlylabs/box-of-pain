@@ -39,9 +39,11 @@ class event {
 	public:
 		Syscall *sc;
 		bool entry;
+		int trid, uuid;
 		/* this vector lists the extra partial-order "parents" of this event */
 		std::vector<event *> extra_parents;
-		event(Syscall *s, bool e) : sc(s), entry(e) {}
+		event(Syscall *s, bool e, int trid, int uuid) : sc(s), entry(e), trid(trid), uuid(uuid) {}
+		event() {}
 		void serialize(FILE *f);
 };
 
@@ -71,6 +73,8 @@ class Syscall {
 					params[5], retval, ret_success);
 		}
 
+		virtual void run_load(struct run *run, FILE *f) {};
+
 		Syscall(int ftid, long num) {
 			fromtid = ftid;
 			state = STATE_CALLED;
@@ -81,6 +85,8 @@ class Syscall {
 			thread = find_tracee(fromtid);
 			frompid = thread->proc->pid;
 		}
+
+		Syscall(){}
 
 		virtual void finish() {
 			if(ret_success) {
@@ -101,18 +107,17 @@ class sockop {
 		class sock *sock;
 		class sock *get_socket() { return sock; }
 		virtual void serialize(FILE *f) {
-			if(!sock) return;
 			SPACE(f, 2);
-			fprintf(f, "sockop %ld\n", sock->uuid);
+			fprintf(f, "sockop %ld\n", sock ? sock->uuid : -1);
 			//sock->serialize(f);
 		}
+		virtual void run_load(struct run *run, FILE *f);
 };
-
-extern std::vector<Syscall *> syscall_list;
 
 class Sysclone : public Syscall {
 	public:
 		Sysclone(int p, long n) : Syscall(p, n) {}
+		Sysclone() : Syscall() {}
 		void start();
 		void finish();
 };
@@ -120,6 +125,7 @@ class Sysclone : public Syscall {
 class Sysclose : public Syscall, public sockop {
 	public:
 		Sysclose(int p, long n) : Syscall(p, n) {}
+		Sysclose() : Syscall() {}
 		void start() {
 			int fd = params[0];
 			sock = sock_lookup(&current_run, frompid, fd);
@@ -130,11 +136,14 @@ class Sysclose : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
+
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 };
 
 class Sysbind : public Syscall, public sockop {
 	public:
 		Sysbind(int p, long n) : Syscall(p, n) {}
+		Sysbind() : Syscall() {}
 		void start() {
 			struct sockaddr addr;
 			socklen_t len;
@@ -148,36 +157,43 @@ class Sysbind : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 };
 
 class Sysconnect : public Syscall, public sockop {
 	public:
-		class Sysaccept *pair;
+	//	class Sysaccept *pair;
 		Sysconnect(int p, long n) : Syscall(p, n) {}
+		Sysconnect() : Syscall() {}
 		void start();
 		void finish();
 		void serialize(FILE *);
+		void run_load(struct run *run, FILE *f);
 };
 
 class Sysaccept : public Syscall, public sockop {
 	public:
-		class Sysconnect *pair;
+	//	class Sysconnect *pair;
 		struct sock *serversock = NULL;
 		Sysaccept(int p, long n) : Syscall(p, n) {}
+		Sysaccept() : Syscall() {}
 		void start();
 		void finish();
 		void serialize(FILE *);
+		void run_load(struct run *run, FILE *f);
 };
 
 class Sysaccept4 : public Sysaccept {
 	public:
 		Sysaccept4(int p, long n) : Sysaccept(p, n) {}
+		Sysaccept4() : Sysaccept() {}
 };
 
 
 class Syswrite : public Syscall, public sockop {
 	public:
 		Syswrite(int p, long n) : Syscall(p, n) {}
+		Syswrite() : Syscall() {}
 		void finish();
 		void start();
 		void serialize(FILE *f)
@@ -185,11 +201,13 @@ class Syswrite : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 };
 
 class Sysread : public Syscall, public sockop {
 	public:
 		Sysread(int fpid, long n) : Syscall(fpid, n) {}
+		Sysread() : Syscall() {}
 		void finish();
 		void start();
 		void serialize(FILE *f)
@@ -197,12 +215,14 @@ class Sysread : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 
 };
 
 class Sysrecvfrom : public Syscall, public sockop {
 	public:
 		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
+		Sysrecvfrom() : Syscall() {}
 
 		void start();
 		void finish();
@@ -211,6 +231,7 @@ class Sysrecvfrom : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 
 };
 
@@ -218,6 +239,7 @@ class Syssendto : public Syscall, public sockop {
 	public:
 		
 		Syssendto(int fpid, long n) : Syscall(fpid, n) {}
+		Syssendto() : Syscall() {}
 
 		void start();
 		void finish();
@@ -227,7 +249,7 @@ class Syssendto : public Syscall, public sockop {
 			Syscall::serialize(f);
 			sockop::serialize(f);
 		}
-
+		void run_load(struct run *run, FILE *f) { sockop::run_load(run, f); }
 };
 
 

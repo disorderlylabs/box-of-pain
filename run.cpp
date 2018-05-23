@@ -1,9 +1,19 @@
 #include <cstdio>
+#include <cstring>
 #include "run.h"
+template <typename T>
+static T *growcreate(std::vector<T*> *v, size_t idx)
+{
+	if(idx >= v->size()) v->resize(idx+1);
+	if((*v)[idx] == NULL)
+		(*v)[idx] = new T();
+	return (*v)[idx];
+}
+
 
 void event::serialize(FILE *f)
 {
-	fprintf(f, "EVENT %d %d\n", sc->uuid, entry);
+	fprintf(f, "EVENT %d %d %d %d %ld\n", uuid, trid, sc->uuid, entry, extra_parents.size());
 }
 
 void sock::serialize(FILE *f)
@@ -24,14 +34,40 @@ void connection::serialize(FILE *f)
 
 void serialize_thread(struct thread_tr *t, FILE *f)
 {
-	fprintf(f, "THREAD %d %d %d\n",
-			t->id, t->tid, t->proc->pid);
+	fprintf(f, "THREAD %d %d %d %ld\n",
+			t->id, t->tid, t->proc->id, t->event_seq.size());
 }
 
 void serialize_proc(struct proc_tr *p, FILE *f)
 {
-	fprintf(f, "PROCESS %d %d %d %d %s\n",
-			p->id, p->pid, p->ecode, p->exited, p->invoke);
+	fprintf(f, "PROCESS %d %d %d %d %ld %s\n",
+			p->id, p->pid, p->ecode, p->exited, p->proc_thread_list.size(), p->invoke);
+}
+
+void sockop::run_load(struct run *run, FILE *f)
+{
+	int sid;
+	fscanf(f, "  sockop %d\n", &sid);
+	if(sid >= 0)
+		sock = growcreate(&run->sock_list, sid);
+	else
+		sock = NULL;
+}
+
+void Sysaccept::run_load(struct run *run, FILE *f)
+{
+	sockop::run_load(run, f);
+	int ssockid;
+	fscanf(f, "  serversock %d\n", &ssockid);
+	if(ssockid >= 0)
+		serversock = growcreate(&run->sock_list, ssockid);
+	else
+		serversock = NULL;
+}
+
+void Sysconnect::run_load(struct run *run, FILE *f)
+{
+	sockop::run_load(run, f);
 }
 
 void Sysaccept::serialize(FILE *f)
@@ -39,25 +75,25 @@ void Sysaccept::serialize(FILE *f)
 	Syscall::serialize(f);
 	sockop::serialize(f);
 	SPACE(f, 2);
-	fprintf(f, "pair %d\n", pair ? pair->uuid : -1);
-	SPACE(f, 2);
 	fprintf(f, "serversock %ld\n", serversock ? serversock->uuid : -1);
 }
+
 void Sysconnect::serialize(FILE *f) {
 	Syscall::serialize(f);
-	SPACE(f, 2);
-	fprintf(f, "pair %d\n", pair ? pair->uuid : -1);
+	sockop::serialize(f);
 }
-
-
 
 void run_serialize(struct run *run, FILE *f)
 {
+	for(auto s : run->syscall_list) {
+		s->serialize(f);
+	}
+
 	for(auto p : run->proc_list) {
 		serialize_proc(p, f);
 		for(auto t : p->proc_thread_list) {
 			SPACE(f, 2);
-			serialize_thread(t, f);
+			fprintf(f, "thread %d\n", t->id);
 		}
 	}
 
@@ -68,13 +104,9 @@ void run_serialize(struct run *run, FILE *f)
 			e->serialize(f);
 			for(auto p : e->extra_parents) {
 				SPACE(f, 4);
-				p->serialize(f);
+				fprintf(f, "event %d %d\n", p->uuid, p->trid);
 			}
 		}
-	}
-
-	for(auto s : run->syscall_list) {
-		s->serialize(f);
 	}
 
 	for(auto s : run->sock_list) {
@@ -83,6 +115,99 @@ void run_serialize(struct run *run, FILE *f)
 
 	for(auto c : run->connection_list) {
 		c->serialize(f);
+	}
+}
+
+static inline bool startswith(const char *str, const char *sw)
+{
+	return strncmp(str, sw, strlen(sw)) == 0;
+}
+
+extern Syscall * (*syscallmap_inactive[1024])();
+void run_load(struct run *run, FILE *f)
+{
+	char *line = NULL;
+	size_t ls = 0;
+	while(getline(&line, &ls, f) > 0) {
+		printf(":: %s\n", line);
+		if(startswith(line, "PROCESS")) {
+			int id, pid, ecode, exited;
+			int tmp;
+			size_t ptls;
+			sscanf(line, "PROCESS %d %d %d %d %ld %n", &id, &pid, &ecode, &exited, &ptls, &tmp);
+			char *invoke = line + tmp;
+			printf("-> %d %d %d %d %d %s\n", id, pid, ecode, exited, tmp, invoke);
+			struct proc_tr *np = growcreate(&run->proc_list, id);
+			np->id = id;
+			np->pid = pid;
+			np->ecode = ecode;
+			np->exited = exited;
+			np->invoke = strdup(invoke);
+			for(size_t i=0;i<ptls && getline(&line, &ls, f);i++) {
+				int th_id;
+				sscanf(line, "  thread %d", &th_id);
+				struct thread_tr *th = growcreate(&run->thread_list, th_id);
+				np->proc_thread_list.push_back(th);
+			}
+		} else if(startswith(line, "THREAD")) {
+			int id, tid, pr_id;
+			size_t ess;
+			sscanf(line, "THREAD %d %d %d %ld", &id, &tid, &pr_id, &ess);
+			struct thread_tr *th = growcreate(&run->thread_list, id);
+			th->id = id;
+			th->tid = tid;
+			th->proc = growcreate(&run->proc_list, pr_id);
+			for(size_t i=0;i<ess && getline(&line, &ls, f);i++) {
+				size_t pcount;
+				int sc, ent, uuid, trid;
+				/* TODO: proc->event_seq */
+				sscanf(line, "  EVENT %d %d %d %d %ld", &uuid, &trid, &sc, &ent, &pcount);
+				event *e = growcreate(&th->event_seq, uuid);
+				e->entry = ent;
+				e->sc = run->syscall_list[sc];
+				e->trid = trid;
+				e->uuid = uuid;
+				if(ent) e->sc->entry_event = e;
+				else e->sc->exit_event = e;
+				e->sc->thread = th;
+				for(size_t j=0;j<pcount && getline(&line, &ls, f);j++) {
+					int patr, paid;
+					sscanf(line, "    event %d %d", &paid, &patr);
+					struct thread_tr *parent_th = growcreate(&run->thread_list, patr);
+					event *pe = growcreate(&parent_th->event_seq, paid);
+					e->extra_parents.push_back(pe);
+				}
+			}
+		} else if(startswith(line, "SYSCALL")) {
+			int uuid, fromtid, frompid, rv, succ;
+			long number, p0, p1, p2, p3, p4, p5;
+			char lid[32];
+			sscanf(line, "SYSCALL %d %d %d %s %ld %ld %ld %ld %ld %ld %ld %d %d",
+					&uuid, &fromtid, &frompid, lid, &number, &p0, &p1, &p2, &p3, &p4, &p5, &rv, &succ);
+			Syscall *sc = syscallmap_inactive[number]();
+			sc->uuid = uuid;
+			sc->fromtid = fromtid;
+			sc->frompid = frompid;
+			sc->retval = rv;
+			sc->ret_success = succ;
+			sc->number = number;
+			sc->params[0] = p0;
+			sc->params[1] = p1;
+			sc->params[2] = p2;
+			sc->params[3] = p3;
+			sc->params[4] = p4;
+			sc->params[5] = p5;
+			sc->localid = std::string(lid);
+			sc->run_load(run, f);
+			run->syscall_list.push_back(sc);
+		} else if(startswith(line, "SOCK")) {
+
+		} else if(startswith(line, "CONN")) {
+
+		} else {
+			fprintf(stderr, "Cannot parse line: %s", line);
+			exit(1);
+		}
 	}
 }
 

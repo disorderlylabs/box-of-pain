@@ -35,4 +35,5 @@ extern struct run current_run;
 
 #include <cstdio>
 void run_serialize(struct run *run, FILE *f);
+void run_load(struct run *run, FILE *f);
 

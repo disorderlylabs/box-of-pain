@@ -61,6 +61,9 @@ template <typename T>
 Syscall * make(int fpid, long n) { return new T(fpid, n); }
 Syscall * (*syscallmap[1024])(int, long) = { };
 
+template <typename T>
+Syscall * make_inactive() { return new T(); }
+Syscall * (*syscallmap_inactive[1024])() = { };
 
 //A means to end the process and dump out the graph, in case no elegant way to do so exists in the tracees.
 volatile bool keyboardinterrupt = false;
@@ -172,7 +175,7 @@ int do_trace()
 
 		if(tracee->proc->exited) {
 			num_exited++;
-			fprintf(stderr, "Exit %d (tid %d) exited: %d\n", tracee->proc->id, tracee->tid, tracee->proc->ecode);
+			fprintf(stderr, "Exit %d (tid %d) exited: %d\n", tracee->id, tracee->tid, tracee->proc->ecode);
 			if(num_exited == current_run.thread_list.size()) break;
 			continue;
 		}
@@ -187,20 +190,22 @@ int do_trace()
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*ORIG_RAX);
 			if(errno != 0) break;
 #ifdef LOG_SYSCALLS
-			fprintf(stderr, "[%d: %d]: %s entry\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum]);
+			fprintf(stderr, "[%d: %d]: %s entry\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum]);
 #endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
 				/* we're tracking this syscall. Instantiate a new one. */
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->tid, tracee->sysnum);
 				tracee->syscall->start();
-				class event *e = new event(tracee->syscall, true);
+				class event *e = new event(tracee->syscall, true, tracee->id, tracee->event_seq.size());
 				/* create the entry and exit event */
 				tracee->syscall->entry_event = e;
 				tracee->event_seq.push_back(e);
 				tracee->proc->event_seq.push_back(e);
-				e = new event(tracee->syscall, false);
+				e = new event(tracee->syscall, false, tracee->id, tracee->event_seq.size());
 				tracee->syscall->exit_event = e;
+				tracee->event_seq.push_back(tracee->syscall->exit_event);
+				tracee->proc->event_seq.push_back(tracee->syscall->exit_event);
 
 				tracee->syscall->uuid = current_run.syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->proc->event_seq.size());
@@ -213,14 +218,12 @@ int do_trace()
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long)*RAX);
 			if(errno != 0) break;
 #ifdef LOG_SYSCALLS	
-			fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->proc->id, tracee->tid, syscall_names[tracee->sysnum], retval);
+			fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum], retval);
 #endif
 			if(tracee->syscall) {
 				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
-				tracee->event_seq.push_back(tracee->syscall->exit_event);
-				tracee->proc->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->syscall->finish();
 			}
 			if(tracee->sysnum == SYS_execve && tracee->syscall_rip == (uint64_t) -1) {
@@ -248,7 +251,10 @@ void usage(void)
 	printf("   -d                   : Dump tracing info\n");
 }
 
-#define SETSYS(s) syscallmap[SYS_ ## s] = make<Sys ## s>
+#define SETSYS(s) ({ \
+		syscallmap[SYS_ ## s] = make<Sys ## s>; \
+		syscallmap_inactive[SYS_ ## s] = make_inactive<Sys ## s>; })
+
 int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
@@ -270,8 +276,20 @@ int main(int argc, char **argv)
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
 	char *follow_file_path = NULL;
-	while((r = getopt(argc, argv, "e:dhTCfs:")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTCfs:r:")) != EOF) {
+		struct run run;
+		FILE *rf;
 		switch(r) {
+			case 'r':
+				rf = fopen(optarg, "r");
+				if(rf == NULL) {
+					fprintf(stderr, "cannot open runfile %s\n", optarg);
+					exit(1);
+				}
+				run_load(&run, rf);
+				fclose(rf);
+				exit(0);
+				break;
 			case 'f':
 				current_mode = OPMODE_FOLLOW;
 				follow_file_path = optarg;
@@ -287,7 +305,7 @@ int main(int argc, char **argv)
 					}
 					struct thread_tr *tr = new thread_tr();
 					struct proc_tr * ptr = new proc_tr();
-					tr->id = current_run.proc_list.size();
+					tr->id = current_run.thread_list.size();
 					ptr->id = current_run.proc_list.size();
 					tr->sysnum = -1; //we're not in a syscall to start.
 					tr->syscall_rip = -1;
@@ -548,6 +566,7 @@ int main(int argc, char **argv)
 		fclose(dotout);
 
 
+#if 0
 
 		dotout = fopen("proc.m4", "w");
 		dotdefs = fopen("proc.inc", "w");
@@ -609,6 +628,7 @@ int main(int argc, char **argv)
 		fclose(dotdefs);
 		fclose(dotout);
 
+#endif
 
 	}
 	return 0;

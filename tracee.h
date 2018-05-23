@@ -19,7 +19,8 @@ struct proc_tr {
 };
 
 struct thread_tr {
-	int id; //This is equal to process->id
+	int id;
+	int uuid;
 	int tid;
 	int status;
 	long sysnum;

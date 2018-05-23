@@ -24,7 +24,7 @@ void Sysclone::finish() {
 	tr->syscall = NULL;
 	tr->proc = thread->proc;
 	tr->active = true;
-	tr->id = thread->id;
+	tr->id = current_run.thread_list.size();
 	tr->tid = newtid;
 	current_run.traces[tr->tid] = tr;
 	current_run.thread_list.push_back(tr);
