@@ -101,6 +101,7 @@ class sockop {
 		class sock *sock;
 		class sock *get_socket() { return sock; }
 		virtual void serialize(FILE *f) {
+			if(!sock) return;
 			fprintf(f, "sockop ");
 			SPACE(f, 2);
 			sock->serialize(f);
@@ -124,14 +125,19 @@ class Sysclose : public Syscall, public sockop {
 			sock = sock_lookup(&current_run, frompid, fd);
 			sock_close(&current_run, frompid, fd);
 		}
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
 };
 
 class Sysbind : public Syscall, public sockop {
 	public:
-		struct sockaddr addr;
-		socklen_t len;
 		Sysbind(int p, long n) : Syscall(p, n) {}
 		void start() {
+			struct sockaddr addr;
+			socklen_t len;
 			int sockfd = params[0];
 			GETOBJ(fromtid, params[1], &addr);
 			len = params[2];
@@ -147,8 +153,6 @@ class Sysbind : public Syscall, public sockop {
 class Sysconnect : public Syscall, public sockop {
 	public:
 		class Sysaccept *pair;
-		struct sockaddr addr;
-		socklen_t len;
 		Sysconnect(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
@@ -161,11 +165,15 @@ class Sysaccept : public Syscall, public sockop {
 	public:
 		class Sysconnect *pair;
 		struct sock *serversock = NULL;
-		struct sockaddr addr;
-		socklen_t len;
 		Sysaccept(int p, long n) : Syscall(p, n) {}
 		void start();
 		void finish();
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
+
 };
 
 class Sysaccept4 : public Sysaccept {
@@ -179,6 +187,12 @@ class Syswrite : public Syscall, public sockop {
 		Syswrite(int p, long n) : Syscall(p, n) {}
 		void finish();
 		void start();
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
+
 };
 
 class Sysread : public Syscall, public sockop {
@@ -186,36 +200,41 @@ class Sysread : public Syscall, public sockop {
 		Sysread(int fpid, long n) : Syscall(fpid, n) {}
 		void finish();
 		void start();
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
+
 };
 
 class Sysrecvfrom : public Syscall, public sockop {
 	public:
-		int sockfd;
-		void *buffer;
-		size_t length;
-		int flags;
-		struct sockaddr *addr;
-		socklen_t *addrlen;
-
 		Sysrecvfrom(int fpid, long n) : Syscall(fpid, n) {}
 
 		void start();
 		void finish();
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
+
 };
 
 class Syssendto : public Syscall, public sockop {
 	public:
-		int sockfd;
-		void *buffer;
-		size_t length;
-		int flags;
-		struct sockaddr *dest;
-		socklen_t dest_len;
-
+		
 		Syssendto(int fpid, long n) : Syscall(fpid, n) {}
 
 		void start();
 		void finish();
+
+		void serialize(FILE *f)
+		{
+			Syscall::serialize(f);
+			sockop::serialize(f);
+		}
 
 };
 

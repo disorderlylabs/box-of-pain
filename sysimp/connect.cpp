@@ -1,6 +1,8 @@
 #include "sys.h"
 
 void Sysconnect::start() {
+	struct sockaddr addr;
+	socklen_t len;
 	int sockfd = params[0];
 	GETOBJ(fromtid, params[1], &addr);
 	len = params[2];

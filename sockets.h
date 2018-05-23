@@ -108,6 +108,12 @@ void sock_set_peer(sock *s, struct sockaddr *peer, socklen_t plen);
 void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len);
 void sock_discover_addresses(struct sock *sock);
 
+static inline void serialize_sockaddr(FILE *f, struct sockaddr *addr, socklen_t len)
+{
+	struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
+	fprintf(f, "sockaddr_in (%d)%s:%d", len, inet_ntoa(inaddr->sin_addr), inaddr->sin_port);
+}
+
 
 
 

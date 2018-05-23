@@ -4,6 +4,13 @@
 
 
 void Syssendto::start() {
+	int sockfd;
+	void *buffer;
+	size_t length;
+	int flags;
+	struct sockaddr *dest;
+	socklen_t dest_len;
+
 	sockfd = params[0];
 	buffer = (void *)params[1];
 	length = params[2];

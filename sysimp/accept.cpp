@@ -10,6 +10,8 @@ void Sysaccept::start() {
 }
 
 void Sysaccept::finish() {
+	struct sockaddr addr;
+	socklen_t len;
 	int sockfd = retval;
 	if(sockfd >= 0) {
 		len = GET(socklen_t, fromtid, params[2]);

@@ -5,6 +5,14 @@
 /*TODO everything. Sendto is probably easier*/
 
 void Sysrecvfrom::start() {
+	int sockfd;
+	void *buffer;
+	size_t length;
+	int flags;
+	struct sockaddr *addr;
+	socklen_t *addrlen;
+
+
 	sockfd = params[0];
 	buffer = (void *)params[1];
 	length = params[2];
