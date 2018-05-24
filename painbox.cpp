@@ -31,8 +31,9 @@
 /* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
 
 struct options {
+	bool wait;
 	bool dump;
-} options = {.dump = false};
+} options = {.wait = false, .dump = false};
 
 enum opmode {
 	OPMODE_TRACE,
@@ -277,22 +278,27 @@ int main(int argc, char **argv)
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
 	char *follow_file_path = NULL;
-	while((r = getopt(argc, argv, "e:dhTCfs:r:")) != EOF) {
-		struct run run;
+	while((r = getopt(argc, argv, "e:dhTCfs:r:w")) != EOF) {
 		FILE *rf;
+		run *run;
 		switch(r) {
+			case 'w':
+				options.wait = true;
+				break;
 			case 'r':
 				rf = fopen(optarg, "r");
 				if(rf == NULL) {
 					fprintf(stderr, "cannot open runfile %s\n", optarg);
 					exit(1);
 				}
-				run_load(&run, rf);
+				fprintf(stderr, "loading runfile %s\n", optarg);
+				run = new struct run();
+				run_load(run, rf);
 				fclose(rf);
+				followrun_add(run);
 
-				dump("run", &run);
-
-				exit(0);
+				//dump("run", &run);
+				//exit(0);
 				break;
 			case 'f':
 				current_mode = OPMODE_FOLLOW;
@@ -453,6 +459,15 @@ int main(int argc, char **argv)
 			usage();
 			return 1;
 	}
+
+	if(options.wait) {
+		fprintf(stderr, "=== READY TO TRACE ===\n");
+		fprintf(stderr, "press any key...\n");
+		signal(SIGINT, SIG_DFL);
+		getchar();
+		signal(SIGINT, keyboardinterrupthandler);
+	}
+
 	do_trace();
 	/* done tracing, collect errors */
 	if(!keyboardinterrupt){

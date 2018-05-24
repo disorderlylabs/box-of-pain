@@ -128,14 +128,13 @@ void run_load(struct run *run, FILE *f)
 	char *line = NULL;
 	size_t ls = 0;
 	while(getline(&line, &ls, f) > 0) {
-		printf(":: %s\n", line);
 		if(startswith(line, "PROCESS")) {
 			int id, pid, ecode, exited;
 			int tmp;
 			size_t ptls;
 			sscanf(line, "PROCESS %d %d %d %d %ld %n", &id, &pid, &ecode, &exited, &ptls, &tmp);
 			char *invoke = line + tmp;
-			printf("-> %d %d %d %d %d %s\n", id, pid, ecode, exited, tmp, invoke);
+			//printf("-> %d %d %d %d %d %s\n", id, pid, ecode, exited, tmp, invoke);
 			struct proc_tr *np = growcreate(&run->proc_list, id);
 			np->id = id;
 			np->pid = pid;
