@@ -38,7 +38,7 @@ class Syscall;
 class event {
 	public:
 		Syscall *sc;
-		bool entry;
+		bool entry, pending;
 		int trid, uuid;
 		/* this vector lists the extra partial-order "parents" of this event */
 		std::vector<event *> extra_parents;

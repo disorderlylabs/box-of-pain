@@ -203,10 +203,9 @@ int do_trace()
 				tracee->syscall->entry_event = e;
 				tracee->event_seq.push_back(e);
 				tracee->proc->event_seq.push_back(e);
-				e = new event(tracee->syscall, false, tracee->id, tracee->event_seq.size());
+				e = new event(tracee->syscall, false, tracee->id, -1);
 				tracee->syscall->exit_event = e;
-				tracee->event_seq.push_back(tracee->syscall->exit_event);
-				tracee->proc->event_seq.push_back(tracee->syscall->exit_event);
+				e->pending = true;
 
 				tracee->syscall->uuid = current_run.syscall_list.size();
 				tracee->syscall->localid = std::to_string(tracee->id) + std::to_string(tracee->proc->event_seq.size());
@@ -225,6 +224,12 @@ int do_trace()
 				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
+
+				tracee->syscall->exit_event->pending = false;
+				tracee->syscall->exit_event->uuid = tracee->event_seq.size();
+				tracee->event_seq.push_back(tracee->syscall->exit_event);
+				tracee->proc->event_seq.push_back(tracee->syscall->exit_event);
+
 				tracee->syscall->finish();
 			}
 			if(tracee->sysnum == SYS_execve && tracee->syscall_rip == (uint64_t) -1) {
@@ -297,7 +302,7 @@ int main(int argc, char **argv)
 				fclose(rf);
 				followrun_add(run);
 
-				//dump("run", &run);
+				//dump("run", run);
 				//exit(0);
 				break;
 			case 'f':
