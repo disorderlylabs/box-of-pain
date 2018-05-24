@@ -22,7 +22,7 @@
 #include "sys.h"
 #include "tracee.h"
 #include "run.h"
-#define LOG_SYSCALLS
+//#define LOG_SYSCALLS
 
 #ifndef PTRACE_EVENT_STOP
 #define PTRACE_EVENT_STOP 128
@@ -282,7 +282,6 @@ int main(int argc, char **argv)
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	char *follow_file_path = NULL;
 	while((r = getopt(argc, argv, "e:dhTCfs:r:w")) != EOF) {
 		FILE *rf;
 		run *run;
@@ -301,13 +300,10 @@ int main(int argc, char **argv)
 				run_load(run, rf);
 				fclose(rf);
 				followrun_add(run);
+				current_mode = OPMODE_FOLLOW;
 
 				//dump("run", run);
 				//exit(0);
-				break;
-			case 'f':
-				current_mode = OPMODE_FOLLOW;
-				follow_file_path = optarg;
 				break;
 			case 'e':
 				{
