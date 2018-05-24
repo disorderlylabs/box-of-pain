@@ -255,6 +255,7 @@ void usage(void)
 		syscallmap[SYS_ ## s] = make<Sys ## s>; \
 		syscallmap_inactive[SYS_ ## s] = make_inactive<Sys ## s>; })
 
+void dump(const char *, struct run *run);
 int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
@@ -288,6 +289,9 @@ int main(int argc, char **argv)
 				}
 				run_load(&run, rf);
 				fclose(rf);
+
+				dump("run", &run);
+
 				exit(0);
 				break;
 			case 'f':
@@ -492,81 +496,10 @@ int main(int argc, char **argv)
 	}
 
 	if(options.dump) {
-		/* output to a dotout and dotdefs file. The dotdefs is a file that you can write
-		 * fully new entries to each iteration. The dotout file is a file that gets entries
-		 * written to over the course of the loop. They form m4 file, where the dotdefs file
-		 * gets included. To view, run `m4 out.m4 && dot -Tpdf -o out.pdf out.dot` 
-		 * Where out is the thread or proc
-		 * */
-		
+	
+		dump("out", &current_run);
 
-		FILE *dotout = fopen("thread.m4", "w");
-		FILE *dotdefs = fopen("thread.inc", "w");
-		fprintf(dotout, "digraph trace {\ninclude(`thread.inc')\n");
-		fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
-		for(auto tr : current_run.thread_list) {
-			printf("Trace of %s\n", tr->proc->invoke);
-			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
-
-			fprintf(dotout, "start%d -> ", tr->tid);
-			fprintf(dotdefs, "subgraph cluster_{ \n");
-			fprintf(dotdefs, "start%d [label=\"%s\",style=\"filled\",fillcolor=\"#1111aa22\"];\n", tr->tid, tr->proc->invoke);
-			for(auto e : tr->event_seq) {
-				std::string sockinfo = "";
-				if(auto clone = dynamic_cast<Sysclone *>(e->sc)){
-					if(e->entry)
-						fprintf(dotdefs, "x%s -> start%d [constraint=\"true\"];\n",
-								e->sc->localid.c_str(), (int)clone->retval);
-				}	
-				if(auto sop = dynamic_cast<sockop *>(e->sc)) {
-					if(sop->get_socket())
-						sockinfo += "" + sock_name_short(sop->get_socket());
-				}
-				fprintf(dotout, "%c%s -> ", e->entry ? 'e' : 'x', e->sc->localid.c_str());
-				for(auto p : e->extra_parents) {
-					fprintf(dotdefs, "%c%s -> %c%s [constraint=\"true\"];\n",
-							p->entry ? 'e' : 'x', p->sc->localid.c_str(),
-							e->entry ? 'e' : 'x', e->sc->localid.c_str());
-				}
-
-				if(e->entry) {
-					//fprintf(dotdefs, "subgraph cluster_%d_%s {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
-					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
-					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->localid.c_str(), tr->tid,
-							syscall_names[e->sc->number],
-							sockinfo.c_str(), "", tr->tid, "#00ff0011");
-
-					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->localid.c_str(), tr->tid,
-							syscall_names[e->sc->number], 
-							sockinfo.c_str(), 
-							std::to_string((long)e->sc->retval).c_str(),
-							tr->tid, "#ff000011");
-
-					//fprintf(dotdefs, "}\n");
-
-
-				}
-			}
-			fprintf(dotout, "exit%d;\n", tr->tid);
-			if(!keyboardinterrupt){
-				fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
-						tr->tid, tr->proc->ecode, tr->proc->ecode == 0 ? "#1111aa22" : "#ff111188");
-				printf(" Exited with %d\n", tr->proc->ecode);
-			} else {
-				fprintf(dotdefs, "exit%d [label=\"Interrupted\",style=\"filled\",fillcolor=\"%s\"];\n",
-						tr->tid, "#1111aa22");
-
-			}
-			fprintf(dotdefs, "}\n");
-		}
-		fprintf(dotout, "\n}\n");
-		fclose(dotdefs);
-		fclose(dotout);
-
-
-#if 0
+		#if 0
 
 		dotout = fopen("proc.m4", "w");
 		dotdefs = fopen("proc.inc", "w");

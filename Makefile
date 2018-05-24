@@ -4,7 +4,7 @@ CXX=g++
 CFLAGS=-std=gnu11 -Wall -Wextra -Og -g
 CC=gcc
 
-SOURCES=painbox.cpp helper.cpp run.cpp socket.cpp $(addprefix sysimp/,read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
+SOURCES=painbox.cpp dump.cpp helper.cpp run.cpp socket.cpp $(addprefix sysimp/,read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 

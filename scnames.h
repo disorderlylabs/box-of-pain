@@ -1,4 +1,4 @@
-const char *syscall_names[] = {
+static const char *syscall_names[] = {
 [0] = "read",
 [1] = "write",
 [2] = "open",
