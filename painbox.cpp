@@ -128,7 +128,7 @@ void process_event(struct thread_tr *tracee)
 	 * graph. */
 
 	if(current_mode == OPMODE_FOLLOW) {
-		bool felloff = true;
+		bool felloff = followrun_step(tracee);
 		if(felloff) {
 			current_mode = OPMODE_TRACE;
 		}

@@ -39,3 +39,4 @@ void run_load(struct run *run, FILE *f);
 
 void followrun_del(struct run *run);
 void followrun_add(struct run *run);
+bool followrun_step(struct thread_tr *tracee);

@@ -14,3 +14,9 @@ void followrun_del(struct run *run)
 	followruns.erase(run);
 }
 
+bool followrun_step(struct thread_tr *tracee)
+{
+
+	return true;
+}
+
