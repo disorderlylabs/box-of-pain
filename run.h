@@ -14,6 +14,7 @@ extern struct run current_run;
 class connection;
 class sock;
 struct run {
+	const char *name;
 	/* list of all traced processes in the system */
 	std::vector<struct proc_tr *> proc_list;
 	/* list of all traced threads in the system */
@@ -40,3 +41,5 @@ void run_load(struct run *run, FILE *f);
 void followrun_del(struct run *run);
 void followrun_add(struct run *run);
 bool followrun_step(struct thread_tr *tracee);
+void followrun_dumpall();
+void dump(const char *, struct run *run);

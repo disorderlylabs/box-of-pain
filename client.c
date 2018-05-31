@@ -35,6 +35,7 @@ again:
 	}
 
 	const char *msg = "Hello, Server!\n";
+	sleep(getpid() % 2);
 	write(sockfd, msg, strlen(msg));
 
 	char buf[128];

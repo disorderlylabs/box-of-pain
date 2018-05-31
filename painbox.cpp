@@ -33,7 +33,8 @@
 struct options {
 	bool wait;
 	bool dump;
-} options = {.wait = false, .dump = false};
+	bool step;
+} options = {.wait = false, .dump = false, .step = false};
 
 enum opmode {
 	OPMODE_TRACE,
@@ -122,7 +123,7 @@ struct thread_tr *wait_for_syscall(void)
 	return NULL;
 }
 
-void process_event(struct thread_tr *tracee)
+void process_event(bool traced, struct thread_tr *tracee)
 {
 	/* depending on the opmode, we're either following along or tracing a new
 	 * graph. */
@@ -132,6 +133,10 @@ void process_event(struct thread_tr *tracee)
 		if(felloff) {
 			current_mode = OPMODE_TRACE;
 		}
+	}
+	if(options.step && traced) {
+		followrun_dumpall();
+		getchar();
 	}
 }
 
@@ -185,6 +190,7 @@ int do_trace()
 		 * we need to inject a syscall. */
 		register_syscall_rip(tracee);
 
+		bool traced = false;
 		if(tracee->sysnum == -1) {
 			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
 			errno = 0;
@@ -195,6 +201,7 @@ int do_trace()
 #endif
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
+				traced = true;
 				/* we're tracking this syscall. Instantiate a new one. */
 				tracee->syscall = syscallmap[tracee->sysnum](tracee->tid, tracee->sysnum);
 				tracee->syscall->start();
@@ -221,6 +228,7 @@ int do_trace()
 			fprintf(stderr, "[%d: %d]: %s exit -> %ld\n", tracee->id, tracee->tid, syscall_names[tracee->sysnum], retval);
 #endif
 			if(tracee->syscall) {
+				traced = true;
 				/* this syscall was tracked. Finish it up */
 				tracee->syscall->retval = retval;
 				tracee->syscall->state = STATE_DONE;
@@ -241,7 +249,7 @@ int do_trace()
 			tracee->sysnum = -1;
 		}
 
-		process_event(tracee);
+		process_event(traced, tracee);
 
 		/* ...and continue */
 		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
@@ -261,7 +269,6 @@ void usage(void)
 		syscallmap[SYS_ ## s] = make<Sys ## s>; \
 		syscallmap_inactive[SYS_ ## s] = make_inactive<Sys ## s>; })
 
-void dump(const char *, struct run *run);
 int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
@@ -278,11 +285,13 @@ int main(int argc, char **argv)
 
 	signal(SIGINT, keyboardinterrupthandler);
 
+	current_run.name = "current";
+
 	enum modes {MODE_C, MODE_T, MODE_NULL, MODE_R};
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; //0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTCfs:r:w")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTCfs:r:wS")) != EOF) {
 		FILE *rf;
 		run *run;
 		switch(r) {
@@ -297,6 +306,7 @@ int main(int argc, char **argv)
 				}
 				fprintf(stderr, "loading runfile %s\n", optarg);
 				run = new struct run();
+				run->name = strdup(optarg);
 				run_load(run, rf);
 				fclose(rf);
 				followrun_add(run);
@@ -348,6 +358,9 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				serialize_run = optarg;
+				break;
+			case 'S':
+				options.step = true;
 				break;
 			default:
 				usage();
@@ -513,7 +526,7 @@ int main(int argc, char **argv)
 
 	if(options.dump) {
 	
-		dump("out", &current_run);
+		dump(current_run.name, &current_run);
 
 		#if 0
 

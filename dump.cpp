@@ -33,7 +33,6 @@ void dump(const char *name, struct run *run)
 	fprintf(dotout, "digraph trace {\ninclude(`%s.inc')\n", name);
 	fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
 	for(auto tr : run->thread_list) {
-		printf("Trace of %s\n", tr->proc->invoke);
 		fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
 
 		fprintf(dotout, "start%d -> ", tr->tid);
@@ -58,8 +57,6 @@ void dump(const char *name, struct run *run)
 			}
 
 			if(e->entry) {
-				//fprintf(dotdefs, "subgraph cluster_%d_%s {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
-				//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
 				fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
 						e->sc->localid.c_str(), tr->tid,
 						syscall_names[e->sc->number],
@@ -71,10 +68,6 @@ void dump(const char *name, struct run *run)
 						sockinfo.c_str(), 
 						std::to_string((long)e->sc->retval).c_str(),
 						tr->tid, "#ff000011");
-
-				//fprintf(dotdefs, "}\n");
-
-
 			}
 		}
 		fprintf(dotout, "exit%d;\n", tr->tid);
@@ -82,7 +75,6 @@ void dump(const char *name, struct run *run)
 		if(!keyboardinterrupt){
 			fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
 					tr->tid, tr->proc->ecode, tr->proc->ecode == 0 ? "#1111aa22" : "#ff111188");
-			printf(" Exited with %d\n", tr->proc->ecode);
 		} else {
 			fprintf(dotdefs, "exit%d [label=\"Interrupted\",style=\"filled\",fillcolor=\"%s\"];\n",
 					tr->tid, "#1111aa22");
@@ -97,3 +89,4 @@ void dump(const char *name, struct run *run)
 
 
 }
+

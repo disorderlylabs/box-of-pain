@@ -58,7 +58,7 @@ class Syscall {
 		struct thread_tr *thread;
 		unsigned long number;
 		unsigned long params[MAX_PARAMS];
-		unsigned long retval;
+		unsigned long retval = 0;
 		/* if this gets set, it will force the syscall implementation
 		 * to return success to the process, regardless of what happens.
 		 * This can be used to, for example, make a write look like it
@@ -73,7 +73,7 @@ class Syscall {
 					params[5], retval, ret_success);
 		}
 
-		virtual void run_load(struct run *run, FILE *f) {};
+		virtual void run_load(struct run *run, FILE *f) {(void)run; (void)f;};
 
 		Syscall(int ftid, long num) {
 			fromtid = ftid;
@@ -104,7 +104,7 @@ class Syscall {
 
 class sockop {
 	public:
-		class sock *sock;
+		class sock *sock = NULL;
 		class sock *get_socket() { return sock; }
 		virtual void serialize(FILE *f) {
 			SPACE(f, 2);
