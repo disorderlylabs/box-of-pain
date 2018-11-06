@@ -1,12 +1,12 @@
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netdb.h>
-#include <sys/types.h> 
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 int main()
 {
@@ -25,30 +25,29 @@ int main()
 
 	socklen_t clientlen = sizeof(clientaddr);
 
-    int votes = 0;
-    while (votes < 3) {
-	    int client = accept(sockfd, (struct sockaddr *)&clientaddr, &clientlen);
-	    if(client == -1) {
-		    perror("accept");
-		    exit(1);
-	    }
+	int votes = 0;
+	while(votes < 3) {
+		int client = accept(sockfd, (struct sockaddr *)&clientaddr, &clientlen);
+		if(client == -1) {
+			perror("accept");
+			exit(1);
+		}
 
-	    char buf[128];
-	    memset(buf, 0, 128);
-	    read(client, buf, 128);
-        char *ip = inet_ntoa(clientaddr.sin_addr);
-        short port = clientaddr.sin_port;
-	    fprintf(stderr, "Client %s:%5.5hu wrote %s\n", ip, port, buf);
+		char buf[128];
+		memset(buf, 0, 128);
+		read(client, buf, 128);
+		char *ip = inet_ntoa(clientaddr.sin_addr);
+		short port = clientaddr.sin_port;
+		//    fprintf(stderr, "Client %s:%5.5hu wrote %s\n", ip, port, buf);
 
-        if (strcmp(buf, "Hello, Server!\n") == 0) {
-            votes++;
-        }
-	    const char *msg = "Hello yourself!\n";
-	    write(client, msg, strlen(msg));
-	    close(client);
-
-    }
-    printf("Success!\n");
+		if(strcmp(buf, "Hello, Server!\n") == 0) {
+			votes++;
+		}
+		const char *msg = "Hello yourself!\n";
+		write(client, msg, strlen(msg));
+		close(client);
+	}
+	// printf("Success!\n");
 	close(sockfd);
 	return 0;
 }

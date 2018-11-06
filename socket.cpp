@@ -1,17 +1,16 @@
-#include <cstdio>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unordered_map>
-#include <string>
+#include <cstdio>
 #include <cstring>
+#include <netinet/in.h>
+#include <string>
+#include <sys/socket.h>
+#include <unordered_map>
 
-#include "sockets.h"
 #include "helper.h"
-#include "tracee.h"
-#include "sys.h"
 #include "run.h"
-
+#include "sockets.h"
+#include "sys.h"
+#include "tracee.h"
 
 void sock_close(struct run *run, int pid, int sock)
 {
@@ -33,7 +32,7 @@ void sock_set_addr(sock *s, struct sockaddr *addr, socklen_t len)
 }
 
 class sock *sock_assoc(struct run *run, struct thread_tr *tr, int _sock)
-{	
+{
 	class sock *s = new sock;
 	s->fromthread = tr;
 	s->proc = tr->proc;
@@ -45,7 +44,12 @@ class sock *sock_assoc(struct run *run, struct thread_tr *tr, int _sock)
 	s->sockfd = _sock;
 	run->sockets[s->frompid][_sock] = s;
 	run->sock_list.push_back(s);
-	fprintf(stderr, "Assoc sock (%d,%d) to %s\n", s->frompid, _sock, sock_name(run->sockets[s->frompid][_sock]).c_str());
+	if(options.log_sockets)
+		fprintf(stderr,
+		  "Assoc sock (%d,%d) to %s\n",
+		  s->frompid,
+		  _sock,
+		  sock_name(run->sockets[s->frompid][_sock]).c_str());
 	return s;
 }
 
@@ -64,8 +68,12 @@ class sock *sock_lookup_addr(struct run *run, struct sockaddr *addr, socklen_t a
 }
 
 /* TODO (major): What about repeated connections? */
-class connection *conn_lookup(struct run *run, struct sockaddr *caddr, socklen_t clen,
-		struct sockaddr *saddr, socklen_t slen, bool create)
+class connection *conn_lookup(struct run *run,
+  struct sockaddr *caddr,
+  socklen_t clen,
+  struct sockaddr *saddr,
+  socklen_t slen,
+  bool create)
 {
 	connid id(caddr, clen, saddr, slen);
 	if(run->connections.find(id) == run->connections.end()) {
@@ -148,19 +156,22 @@ std::string sock_name_short(class sock *s)
  * our process and record it. */
 void sock_discover_addresses(struct sock *sock)
 {
-	if(!(sock->flags & S_ASSOC)) return;
-	
+	if(!(sock->flags & S_ASSOC))
+		return;
+
 	struct thread_tr *tracee = sock->fromthread;
 	if(!(sock->flags & S_ADDR)) {
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
 		tracee_set(tracee->tid, (uintptr_t)__X_len, sizeof(struct sockaddr));
-		int r = inject_syscall(tracee, SYS_getsockname, sock->sockfd, (long)__X_addr, (long)__X_len);
+		int r =
+		  inject_syscall(tracee, SYS_getsockname, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
 			socklen_t salen = GET(socklen_t, tracee->tid, (uintptr_t)__X_len);
 			GETOBJ(tracee->tid, (long)__X_addr, &sa);
-			if(errno != 0) err(1, "failed to read sockname");
+			if(errno != 0)
+				err(1, "failed to read sockname");
 			sock_set_addr(sock, &sa, salen);
 		} else {
 			fprintf(stderr, "failed to get name in tracee %d\n", tracee->id);
@@ -173,12 +184,14 @@ void sock_discover_addresses(struct sock *sock)
 		struct sockaddr *__X_addr = tracee_alloc_shared_page(tracee, struct sockaddr);
 		socklen_t *__X_len = tracee_alloc_shared_page(tracee, socklen_t);
 		tracee_set(tracee->tid, (uintptr_t)__X_len, sizeof(struct sockaddr));
-		int r = inject_syscall(tracee, SYS_getpeername, sock->sockfd, (long)__X_addr, (long)__X_len);
+		int r =
+		  inject_syscall(tracee, SYS_getpeername, sock->sockfd, (long)__X_addr, (long)__X_len);
 		if(r == 0) {
 			struct sockaddr sa;
 			socklen_t salen = GET(socklen_t, tracee->tid, (uintptr_t)__X_len);
 			GETOBJ(tracee->tid, (long)__X_addr, &sa);
-			if(errno != 0) err(1, "failed to read sockname");
+			if(errno != 0)
+				err(1, "failed to read sockname");
 			sock_set_peer(sock, &sa, salen);
 		} else {
 			fprintf(stderr, "failed to get peer in tracee %d\n", tracee->id);
@@ -188,49 +201,52 @@ void sock_discover_addresses(struct sock *sock)
 	}
 }
 
-void connection::__established() {
+void connection::__established()
+{
 	/* if the connection can be determined (both sides have
 	 * witnessed the syscall exit), then add our edges to extra_parents */
-	if(!connside || !accside) return;
-	//conn->pair = acc;
-	//acc->pair = conn;
+	if(!connside || !accside)
+		return;
+	// conn->pair = acc;
+	// acc->pair = conn;
 	conn->exit_event->extra_parents.push_back(acc->entry_event);
 	acc->exit_event->extra_parents.push_back(conn->entry_event);
 }
 
-void connection::set_connside(Sysconnect *sys, sock *s) {
+void connection::set_connside(Sysconnect *sys, sock *s)
+{
 	connside = s;
 	conn = sys;
 	__established();
 }
 
-void connection::set_accside(Sysaccept *sys, sock *s) {
+void connection::set_accside(Sysaccept *sys, sock *s)
+{
 	accside = s;
 	acc = sys;
 	__established();
 }
 
-void connection::write(sock *s, Syscall *sys, size_t len) {
+void connection::write(sock *s, Syscall *sys, size_t len)
+{
 	assert(s == connside || s == accside);
 	assert(s != NULL);
 	class stream *stream = s == connside ? &ab : &ba;
 
-	stream->txs.push_back((class stream::tx) {.start = stream->wpos, .len = len, .s = sys} );
+	stream->txs.push_back((class stream::tx){ .start = stream->wpos, .len = len, .s = sys });
 	stream->wpos += len;
 }
 
-
-
-
-std::vector<Syscall *> connection::read(sock *s, size_t len) {
+std::vector<Syscall *> connection::read(sock *s, size_t len)
+{
 	std::vector<Syscall *> rcs;
 
 	/* TODO: this assert _should_ be enabled... but doing so causes it to fail when the clients
 	 * do their weird set-up shit. Still works after that, though. Need to figure out a way to
 	 * ignore the clients setting up. */
-	//assert(s == connside || s == accside);
+	// assert(s == connside || s == accside);
 	assert(s != NULL);
-	class stream *stream = s == connside ? &ba : &ab; //reverse of above
+	class stream *stream = s == connside ? &ba : &ab; // reverse of above
 
 	/* look for overlap between our read (rpos and len) and any transmissions that
 	 * were made */
@@ -246,12 +262,12 @@ std::vector<Syscall *> connection::read(sock *s, size_t len) {
 
 /*
 Syscall * noconnection::recvfrom(sockaddr_t source, size_t len){
-	//Find a message from the given source, having the given length
+    //Find a message from the given source, having the given length
 
 }
 
 void noconnection::sendfrom(Syscall* sys, sockaddr_t source, size_t len){
-	messages.Something(class pseudostream::tx({.source = source, .len = len,}))
+    messages.Something(class pseudostream::tx({.source = source, .len = len,}))
 
 }
 */

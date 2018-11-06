@@ -29,12 +29,7 @@
 
 /* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
 
-struct options {
-	bool wait;
-	bool dump;
-	bool step;
-	bool log_syscalls;
-} options = { .wait = false, .dump = false, .step = false, .log_syscalls = false };
+struct options options = { .wait = false, .dump = false, .step = false, .log_syscalls = false };
 
 enum opmode {
 	OPMODE_TRACE,
@@ -152,7 +147,8 @@ int do_trace()
 	 * and then telling them to continue until they hit a syscall */
 
 	for(auto tr : current_run.thread_list) {
-		fprintf(stderr, "init trace on %d\n", tr->tid);
+		if(options.log_run)
+			fprintf(stderr, "init trace on %d\n", tr->tid);
 		int status;
 		tr->sysnum = -1;
 
@@ -189,11 +185,12 @@ int do_trace()
 
 		if(tracee->proc->exited) {
 			num_exited++;
-			fprintf(stderr,
-			  "Exit %d (tid %d) exited: %d\n",
-			  tracee->id,
-			  tracee->tid,
-			  tracee->proc->ecode);
+			if(options.log_run)
+				fprintf(stderr,
+				  "Exit %d (tid %d) exited: %d\n",
+				  tracee->id,
+				  tracee->tid,
+				  tracee->proc->ecode);
 			if(num_exited == current_run.thread_list.size())
 				break;
 			continue;
@@ -329,7 +326,7 @@ int main(int argc, char **argv)
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; // 0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTCfs:r:wSl")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTCfs:r:wSl:")) != EOF) {
 		FILE *rf;
 		run *run;
 		switch(r) {
@@ -342,7 +339,8 @@ int main(int argc, char **argv)
 					fprintf(stderr, "cannot open runfile %s\n", optarg);
 					exit(255);
 				}
-				fprintf(stderr, "loading runfile %s\n", optarg);
+				if(options.log_run)
+					fprintf(stderr, "loading runfile %s\n", optarg);
 				run = new struct run();
 				run->name = strdup(optarg);
 				run_load(run, rf);
@@ -385,12 +383,14 @@ int main(int argc, char **argv)
 				options.dump = true;
 				break;
 			case 'C':
-				printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
+				if(options.log_run)
+					printf("Entering containerized mode as: %s %u\n", argv[optind], getpid());
 				containerization = MODE_C;
 				r = EOF;
 				break;
 			case 'T':
-				printf("Entering containerized mode as Tracer\n");
+				if(options.log_run)
+					printf("Entering containerized mode as Tracer\n");
 				containerization = MODE_T;
 				break;
 			case 's':
@@ -400,9 +400,23 @@ int main(int argc, char **argv)
 			case 'S':
 				options.step = true;
 				break;
-			case 'l':
-				options.log_syscalls = true;
-				break;
+			case 'l': {
+				char *tok = NULL;
+				while((tok = strtok(tok ? NULL : optarg, ","))) {
+					if(!strcmp(tok, "sys")) {
+						options.log_syscalls = true;
+					} else if(!strcmp(tok, "sock")) {
+						options.log_sockets = true;
+					} else if(!strcmp(tok, "follow")) {
+						options.log_follow = true;
+					} else if(!strcmp(tok, "run")) {
+						options.log_run = true;
+					} else {
+						fprintf(stderr, "Unknown logging type: %s\n", tok);
+						exit(255);
+					}
+				}
+			} break;
 			default:
 				usage();
 				return 255;
@@ -441,8 +455,12 @@ int main(int argc, char **argv)
 				}
 				tr->proc->pid = pid;
 				tr->tid = pid;
-				fprintf(
-				  stderr, "Tracee %d: starting %s (tid %d)\n", tr->id, tr->proc->invoke, tr->tid);
+				if(options.log_run)
+					fprintf(stderr,
+					  "Tracee %d: starting %s (tid %d)\n",
+					  tr->id,
+					  tr->proc->invoke,
+					  tr->tid);
 			}
 			break;
 		case MODE_T: {
@@ -512,7 +530,8 @@ int main(int argc, char **argv)
 			}
 			/* wait for the tracer to get us going later (in do_trace) */
 			raise(SIGSTOP);
-			fprintf(stderr, "Running: %s %u\n", argv[optind], getpid());
+			if(options.log_run)
+				fprintf(stderr, "Running: %s %u\n", argv[optind], getpid());
 			if(execvp(argv[optind], argv + optind) == -1) {
 				fprintf(stderr, "failed to execute %s\n", argv[optind]);
 			}
@@ -536,7 +555,8 @@ int main(int argc, char **argv)
 	if(!keyboardinterrupt) {
 		for(auto ptr : current_run.proc_list) {
 			if(ptr->ecode != 0) {
-				fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
+				if(options.log_run)
+					fprintf(stderr, "Tracee %d exited non-zero exit code\n", ptr->id);
 			}
 		}
 	} else {
@@ -552,7 +572,8 @@ int main(int argc, char **argv)
 	/* if we have any post-processing, do that.
 	 * NOTE: this code is deprecated; hopefully we can do everything in real-time */
 	while(more) {
-		fprintf(stderr, "post-processing pass %d\n", pass);
+		if(options.log_run)
+			fprintf(stderr, "post-processing pass %d\n", pass);
 		more = false;
 		for(auto tr : current_run.proc_list) {
 			for(auto e : tr->event_seq) {

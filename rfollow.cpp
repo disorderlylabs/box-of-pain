@@ -27,6 +27,7 @@ bool followrun_step(struct thread_tr *tracee)
 	if(followruns.size() == 0) {
 		/* no more graphs! */
 		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
+		getchar();
 		return true;
 	}
 	// fprintf(stderr, "STEP\n");
@@ -34,23 +35,25 @@ bool followrun_step(struct thread_tr *tracee)
 		return false;
 	int last_event_idx = tracee->event_seq.size() - 1;
 	event *last_event = tracee->event_seq[last_event_idx];
-	fprintf(stderr,
-	  "last_event # = %d ... %s %d\n",
-	  last_event_idx,
-	  syscall_names[last_event->sc->number],
-	  last_event->entry);
+	// fprintf(stderr,
+	//  "last_event # = %d ... %s %d\n",
+	// last_event_idx,
+	// syscall_names[last_event->sc->number],
+	// last_event->entry);
 	for(auto run : followruns) {
 		struct thread_tr *rthread = run->thread_list[tracee->id];
 		event *rte = rthread->event_seq[last_event_idx];
-		fprintf(stderr, " :: %s %s\n", tracee->proc->invoke, rthread->proc->invoke);
-		fprintf(stderr,
-		  "  :: event: got %ld (exp %ld) %d (exp %d)\n",
-		  last_event->sc->number,
-		  rte->sc->number,
-		  last_event->uuid,
-		  rte->uuid);
 		if(rte->sc->number != last_event->sc->number || rte->uuid != last_event->uuid) {
-			fprintf(stderr, "\n\n******************** FELL OFF\n\n");
+			if(options.log_follow) {
+				fprintf(stderr, "== Fell off %s ==\n", run->name);
+				fprintf(stderr, "  :: %s %s\n", tracee->proc->invoke, rthread->proc->invoke);
+				fprintf(stderr,
+				  "  :: event: got %ld (exp %ld) %d (exp %d)\n",
+				  last_event->sc->number,
+				  rte->sc->number,
+				  last_event->uuid,
+				  rte->uuid);
+			}
 			followrun_del(run);
 			return followrun_step(tracee);
 		}

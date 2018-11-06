@@ -12,11 +12,9 @@ int main(int argc, char **argv)
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent *server;
 
-	printf("Using containerized server\n");
 	server = gethostbyname("server");
 
 	if(server == NULL) {
-		printf("Using localhost\n");
 		server = gethostbyname("localhost");
 	}
 
@@ -42,13 +40,13 @@ again:
 	memset(buf, 0, 128);
 	read(sockfd, buf, 20);
 
-	fprintf(stderr, "Reply: %s\nLooking for second message...\n", buf);
+	// fprintf(stderr, "Reply: %s\nLooking for second message...\n", buf);
 
 	if(read(sockfd, buf, 128) <= 0) {
-		fprintf(stderr, "Second message not found!\n");
+		//	fprintf(stderr, "Second message not found!\n");
 		return 1;
 	}
-	fprintf(stderr, "Found it!\n");
+	// fprintf(stderr, "Found it!\n");
 	close(sockfd);
 	return 0;
 }

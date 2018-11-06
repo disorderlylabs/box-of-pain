@@ -1,40 +1,43 @@
 #pragma once
+#include <arpa/inet.h>
+#include <cassert>
+#include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
-#include <cassert>
 #include <vector>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #define S_ASSOC 1
-#define S_PEER  2
-#define S_ADDR  4
+#define S_PEER 2
+#define S_ADDR 4
 
 class connection;
 class Syscall;
 class Sysconnect;
 class Sysaccept;
-class sock {
-	public:
-		long uuid;
-		std::string name;
-		struct sockaddr addr, peer;
-		socklen_t addrlen, peerlen;
-		int flags = 0;
-		int sockfd;
-		int frompid; //The process within which the socket exists
-		struct proc_tr *proc; 
-		struct thread_tr *fromthread; 
-		int fromtid; //The thread which created the socket. Should only be used during socket creation
-		struct connection *conn;
-		struct noconnection *nconn;
-		sock() { }
+class sock
+{
+  public:
+	long uuid;
+	std::string name;
+	struct sockaddr addr, peer;
+	socklen_t addrlen, peerlen;
+	int flags = 0;
+	int sockfd;
+	int frompid; // The process within which the socket exists
+	struct proc_tr *proc;
+	struct thread_tr *fromthread;
+	int fromtid; // The thread which created the socket. Should only be used during socket creation
+	struct connection *conn;
+	struct noconnection *nconn;
+	sock()
+	{
+	}
 
-		void serialize(FILE *);
+	void serialize(FILE *);
 };
 
-class connection {
+class connection
+{
 	/* streams are used to track the full duplex mode
 	 * TCP connection. Two stream, one for each "direction".
 	 * The stream keeps track of a list of transmissions,
@@ -44,25 +47,29 @@ class connection {
 	 * written to by any tranmission that it knows about.
 	 * We can then know which write syscalls contributed to
 	 * a particlar read return */
-	class stream {
-		public:
-		class tx {
-			public:
-				size_t start;
-				size_t len;
-				Syscall *s;
+	class stream
+	{
+	  public:
+		class tx
+		{
+		  public:
+			size_t start;
+			size_t len;
+			Syscall *s;
 		};
-		size_t wpos=0, rpos=0;
+		size_t wpos = 0, rpos = 0;
 		std::vector<tx> txs;
 	} ab, ba;
 
-	public:
+  public:
 	int uuid;
 	class sock *connside = NULL, *accside = NULL;
 	Sysconnect *conn = NULL;
 	Sysaccept *acc = NULL;
 
-	connection() {}
+	connection()
+	{
+	}
 	void serialize(FILE *);
 
 	std::vector<Syscall *> read(sock *s, size_t len);
@@ -73,27 +80,27 @@ class connection {
 };
 /*
 class noconnection{
-	A UDP socket does not have a connection,
-		we must give it something else to work with
-		A transmission can be characterized by a source and length
-	
-	class pseudostream {
-		class tx {
-			public:
-				size_t len;
-				sockaddr_t source;
-				Syscall *s;
-		}
+    A UDP socket does not have a connection,
+        we must give it something else to work with
+        A transmission can be characterized by a source and length
 
-	} messages;
+    class pseudostream {
+        class tx {
+            public:
+                size_t len;
+                sockaddr_t source;
+                Syscall *s;
+        }
 
-	public:
-		class sock *sock = NULL;
+    } messages;
 
-		noconnection() {}
+    public:
+        class sock *sock = NULL;
 
-		Syscall * recvfrom(sockaddr_t source, size_t len);
-		void sendfrom(Syscall *sys, sockaddr_t source, size_t len);
+        noconnection() {}
+
+        Syscall * recvfrom(sockaddr_t source, size_t len);
+        void sendfrom(Syscall *sys, sockaddr_t source, size_t len);
 
 }
 
@@ -101,7 +108,7 @@ class noconnection{
 #define ISASSOC(s) ((s)->flags & S_ASSOC)
 
 class sock *sock_lookup(struct run *, int pid, int sock);
-class sock *sock_assoc(struct run *, struct thread_tr * tr, int sock);
+class sock *sock_assoc(struct run *, struct thread_tr *tr, int sock);
 std::string sock_name(class sock *s);
 std::string sock_name_short(class sock *s);
 void sock_close(struct run *, int pid, int sock);
@@ -112,57 +119,61 @@ void sock_discover_addresses(struct sock *sock);
 static inline void serialize_sockaddr(FILE *f, struct sockaddr *addr, socklen_t len)
 {
 	struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
-	fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
+	// fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
 }
-
-
-
-
 
 /* test two sockaddrs for equality */
 static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
 {
-	if(a->sa_family != b->sa_family) return false;
+	if(a->sa_family != b->sa_family)
+		return false;
 	struct sockaddr_in *ain = (struct sockaddr_in *)a;
 	struct sockaddr_in *bin = (struct sockaddr_in *)b;
 	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
 }
 
 /* this is a simple hash function. */
-static inline unsigned long
-djb2hash(unsigned char *str, size_t len)
+static inline unsigned long djb2hash(unsigned char *str, size_t len)
 {
-    unsigned long hash = 5381;
-    int c;
+	unsigned long hash = 5381;
+	int c;
 
-    while (len--) {
-        c = *str++;
+	while(len--) {
+		c = *str++;
 		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 	}
 
-    return hash;
+	return hash;
 }
 
-
-
-class connection *conn_lookup(struct run *, struct sockaddr *caddr, socklen_t clen,
-		struct sockaddr *saddr, socklen_t slen, bool create);
+class connection *conn_lookup(struct run *,
+  struct sockaddr *caddr,
+  socklen_t clen,
+  struct sockaddr *saddr,
+  socklen_t slen,
+  bool create);
 
 /* this is a sockaddr_in pair that identifies a connection */
-class connid {
-	public:
-		connid(struct sockaddr *caddr, socklen_t clen, struct sockaddr *saddr, socklen_t slen) : peer1(*caddr), peer2(*saddr), p1len(clen), p2len(slen) {}
+class connid
+{
+  public:
+	connid(struct sockaddr *caddr, socklen_t clen, struct sockaddr *saddr, socklen_t slen)
+	  : peer1(*caddr)
+	  , peer2(*saddr)
+	  , p1len(clen)
+	  , p2len(slen)
+	{
+	}
 	bool operator==(const connid &other) const
 	{
-		return p1len == other.p1len
-			&& p2len == other.p2len
-			&& sa_eq(&peer1, &other.peer1)
-			&& sa_eq(&peer2, &other.peer2);
+		return p1len == other.p1len && p2len == other.p2len && sa_eq(&peer1, &other.peer1)
+		       && sa_eq(&peer2, &other.peer2);
 	}
 	struct sockaddr peer1, peer2;
 	socklen_t p1len, p2len;
 
-	void debug() const {
+	void debug() const
+	{
 		struct sockaddr_in *in = (struct sockaddr_in *)&peer1;
 		fprintf(stderr, "%d::%s:%d", p1len, inet_ntoa(in->sin_addr), ntohs(in->sin_port));
 		in = (struct sockaddr_in *)&peer2;
@@ -170,23 +181,21 @@ class connid {
 	}
 };
 
-namespace std {
-	/* implement hash for connid. Man, I miss Rust syntax sometimes... */
-	template <> struct hash<connid>
+namespace std
+{
+/* implement hash for connid. Man, I miss Rust syntax sometimes... */
+template<>
+struct hash<connid> {
+	size_t operator()(const connid &x) const
 	{
-		size_t operator()(const connid &x) const
-		{
-			return 0; /* TODO: remove this. There's a bug in the below hash function, but it's the general idea.
-			If we try to use the code below, it doesn't work. But it's also not well tested, since I developed this
-			using the 'world's best hash function': return 0. */
-			return (((djb2hash((unsigned char *)&x.peer1, x.p1len)
-						^ (djb2hash((unsigned char *)&x.peer2, x.p2len) << 1)) >> 1)
-						^ (hash<socklen_t>()(x.p1len) << 1) >> 1)
-						^ (hash<socklen_t>()(x.p2len) << 1);
-		}
-	};
+		return 0; /* TODO: remove this. There's a bug in the below hash function, but it's the
+		general idea. If we try to use the code below, it doesn't work. But it's also not well
+		tested, since I developed this using the 'world's best hash function': return 0. */
+		return (((djb2hash((unsigned char *)&x.peer1, x.p1len)
+		           ^ (djb2hash((unsigned char *)&x.peer2, x.p2len) << 1))
+		          >> 1)
+		         ^ (hash<socklen_t>()(x.p1len) << 1) >> 1)
+		       ^ (hash<socklen_t>()(x.p2len) << 1);
+	}
+};
 }
-
-
-
-

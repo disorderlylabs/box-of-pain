@@ -1,14 +1,14 @@
-#include <sys/ptrace.h>
-#include <stdlib.h>
-#include <string>
 #include "helper.h"
-#include <tuple>
+#include <cstring>
+#include <err.h>
 #include <errno.h>
 #include <signal.h>
-#include <err.h>
-#include <sys/wait.h>
+#include <stdlib.h>
+#include <string>
 #include <sys/mman.h>
-#include <cstring>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
+#include <tuple>
 
 #include <tracee.h>
 #define SYSCALL_INSTRUCTION_SZ 2
@@ -23,7 +23,9 @@ void register_syscall_rip(struct thread_tr *t)
 		memset(&t->uregs, 0, sizeof(t->uregs));
 		if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
-			fprintf(stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
+			if(options.log_run)
+				fprintf(
+				  stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
 		}
 	}
 }
@@ -123,7 +125,8 @@ uintptr_t tracee_get_shared_page(struct thread_tr *t)
 	if(t->shared_page == 0) {
 		/* setting up a "shared" page (it's not really shared, we just know where it is),
 		 * is as simple as injecting mmap into the process! */
-		long ret = inject_syscall(t, SYS_mmap, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+		long ret = inject_syscall(
+		  t, SYS_mmap, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 		if((void *)ret == MAP_FAILED) {
 			err(1, "failed to map shared page for tracee %d", t->id);
 		}
@@ -143,7 +146,7 @@ std::string tracee_readstr(int child, unsigned long addr)
 			break;
 		}
 		char *buf = (char *)&tmp;
-		for(unsigned int i=0;i<sizeof(tmp);i++) {
+		for(unsigned int i = 0; i < sizeof(tmp); i++) {
 			if(!*buf) {
 				return str;
 			}
@@ -169,9 +172,8 @@ void tracee_copydata(int child, unsigned long addr, char *buf, ssize_t len)
 			break;
 		}
 		char *b = (char *)&tmp;
-		for(unsigned int i=0;i<sizeof(tmp) && len;i++, len--) {
+		for(unsigned int i = 0; i < sizeof(tmp) && len; i++, len--) {
 			*buf++ = *b++;
 		}
 	}
 }
-
