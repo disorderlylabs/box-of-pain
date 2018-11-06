@@ -340,7 +340,7 @@ int main(int argc, char **argv)
 				rf = fopen(optarg, "r");
 				if(rf == NULL) {
 					fprintf(stderr, "cannot open runfile %s\n", optarg);
-					exit(1);
+					exit(255);
 				}
 				fprintf(stderr, "loading runfile %s\n", optarg);
 				run = new struct run();
@@ -359,7 +359,7 @@ int main(int argc, char **argv)
 				}
 				if(containerization != MODE_R) {
 					usage();
-					return 1;
+					return 255;
 				}
 				struct thread_tr *tr = new thread_tr();
 				struct proc_tr *ptr = new proc_tr();
@@ -380,7 +380,7 @@ int main(int argc, char **argv)
 			} break;
 			case 'h':
 				usage();
-				return 0;
+				return 255;
 			case 'd':
 				options.dump = true;
 				break;
@@ -395,6 +395,7 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				serialize_run = optarg;
+				current_run.name = optarg;
 				break;
 			case 'S':
 				options.step = true;
@@ -404,14 +405,14 @@ int main(int argc, char **argv)
 				break;
 			default:
 				usage();
-				return 1;
+				return 255;
 		}
 	}
 
 	switch(containerization) {
 		case MODE_NULL:
 			usage();
-			return 1;
+			return 255;
 		case MODE_R:
 			for(auto tr : current_run.thread_list) {
 				/* parse the args, and start the process */
@@ -452,7 +453,7 @@ int main(int argc, char **argv)
 			DIR *trdir = opendir("/tracees");
 			if(!trdir) {
 				perror("opendir");
-				exit(1);
+				exit(255);
 			}
 			for(struct dirent *trdirit = readdir(trdir); trdirit != NULL;
 			    trdirit = readdir(trdir)) {
@@ -504,7 +505,7 @@ int main(int argc, char **argv)
 				FILE *pidfile = fopen(path.c_str(), "wx");
 				if(!pidfile) {
 					perror("painbox:");
-					exit(1);
+					exit(255);
 				}
 				fprintf(pidfile, "%s", argv[optind]);
 				fclose(pidfile);
@@ -519,7 +520,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			usage();
-			return 1;
+			return 255;
 	}
 
 	if(options.wait) {
@@ -540,6 +541,7 @@ int main(int argc, char **argv)
 		}
 	} else {
 		fprintf(stderr, "Tracer recieved interrupt\n");
+		return 255;
 	}
 
 	fflush(stderr);
@@ -562,7 +564,7 @@ int main(int argc, char **argv)
 		pass++;
 	}
 
-	if(serialize_run) {
+	if(current_mode == OPMODE_TRACE && serialize_run) {
 		FILE *sout = fopen(serialize_run, "w+");
 		if(!sout) {
 			fprintf(stderr, "failed to open run serialize file for writing\n");
@@ -572,72 +574,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if(options.dump) {
+	if(current_mode == OPMODE_TRACE && options.dump) {
 		dump(current_run.name, &current_run);
-
-#if 0
-
-		dotout = fopen("proc.m4", "w");
-		dotdefs = fopen("proc.inc", "w");
-		fprintf(dotout, "digraph trace {\ninclude(`proc.inc')\n");
-		fprintf(dotdefs, "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n");
-		for(auto proc : current_run.proc_list) {
-			printf("Trace of %s\n", proc->invoke);
-			fprintf(dotout, "edge[weight=2, color=gray75, fillcolor=gray75];\n");
-
-			fprintf(dotout, "start%d -> ", proc->id);
-			fprintf(dotdefs, "subgraph cluster_{ \n");
-			fprintf(dotdefs, "start%d [label=\"%s\",style=\"filled\",fillcolor=\"#1111aa22\"];\n", proc->id, proc->invoke);
-			for(auto e : proc->event_seq) {
-				std::string sockinfo = "";
-				if(auto sop = dynamic_cast<sockop *>(e->sc)) {
-					if(sop->get_socket())
-						sockinfo += "" + sock_name_short(sop->get_socket());
-				}
-				fprintf(dotout, "%c%s -> ", e->entry ? 'e' : 'x', e->sc->localid.c_str());
-				for(auto p : e->extra_parents) {
-					fprintf(dotdefs, "%c%s -> %c%s [constraint=\"true\"];\n",
-							p->entry ? 'e' : 'x', p->sc->localid.c_str(),
-							e->entry ? 'e' : 'x', e->sc->localid.c_str());
-				}
-
-				if(e->entry) {
-					//fprintf(dotdefs, "subgraph cluster_%d_%s {group=\"G%d\";\tlabel=\"%s\";\n\tgraph[style=dotted];\n",
-					//		tr->id, e->sc->localid.c_str(), tr->id, syscall_names[e->sc->number]);
-					fprintf(dotdefs, "e%s [label=\"%d:entry:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->localid.c_str(), proc->id,
-							syscall_names[e->sc->number],
-							sockinfo.c_str(), "", proc->id, "#00ff0011");
-
-
-					fprintf(dotdefs, "x%s [label=\"%d:exit:%s:%s:%s\",group=\"G%d\",fillcolor=\"%s\",style=\"filled\"];\n",
-							e->sc->localid.c_str(), proc->id,
-							syscall_names[e->sc->number], 
-							sockinfo.c_str(), 
-							std::to_string((long)e->sc->retval).c_str(),
-							proc->id, "#ff000011");
-					//fprintf(dotdefs, "}\n");
-
-
-				}
-			}
-			fprintf(dotout, "exit%d;\n", proc->id);
-			if(!keyboardinterrupt){
-				fprintf(dotdefs, "exit%d [label=\"Exit code=%d\",style=\"filled\",fillcolor=\"%s\"];\n",
-						proc->id, proc->ecode, proc->ecode == 0 ? "#1111aa22" : "#ff111188");
-				printf(" Exited with %d\n", proc->ecode);
-			} else {
-				fprintf(dotdefs, "exit%d [label=\"Interrupted\",style=\"filled\",fillcolor=\"%s\"];\n",
-						proc->id, "#1111aa22");
-
-			}
-			fprintf(dotdefs, "}\n");
-		}
-		fprintf(dotout, "\n}\n");
-		fclose(dotdefs);
-		fclose(dotout);
-
-#endif
 	}
-	return 0;
+	return current_mode == OPMODE_FOLLOW ? 0 : 1;
 }

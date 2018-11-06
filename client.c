@@ -1,21 +1,21 @@
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h> 
+#include <sys/types.h>
+#include <unistd.h>
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent *server;
 
 	printf("Using containerized server\n");
 	server = gethostbyname("server");
-	
-	if(server == NULL){
+
+	if(server == NULL) {
 		printf("Using localhost\n");
 		server = gethostbyname("localhost");
 	}
@@ -26,7 +26,7 @@ int main(int argc, char** argv)
 	memcpy((char *)&serveraddr.sin_addr.s_addr, server->h_addr, server->h_length);
 	serveraddr.sin_port = htons(1234);
 
-again: 
+again:
 	if(connect(sockfd, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) == -1) {
 		sleep(1);
 		goto again;
@@ -35,7 +35,7 @@ again:
 	}
 
 	const char *msg = "Hello, Server!\n";
-	sleep(getpid() % 2);
+	// sleep(getpid() % 2);
 	write(sockfd, msg, strlen(msg));
 
 	char buf[128];
@@ -52,4 +52,3 @@ again:
 	close(sockfd);
 	return 0;
 }
-
