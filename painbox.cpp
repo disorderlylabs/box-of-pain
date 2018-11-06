@@ -229,6 +229,7 @@ int do_trace()
 				tracee->syscall->entry_event = e;
 				tracee->event_seq.push_back(e);
 				tracee->proc->event_seq.push_back(e);
+				int &eid = e->uuid;
 				e = new event(tracee->syscall, false, tracee->id, -1);
 				tracee->syscall->exit_event = e;
 				e->pending = true;
@@ -237,6 +238,9 @@ int do_trace()
 				tracee->syscall->localid =
 				  std::to_string(tracee->id) + std::to_string(tracee->proc->event_seq.size());
 				current_run.syscall_list.push_back(tracee->syscall);
+				if(options.log_syscalls)
+					fprintf(
+					  stderr, "  ++ event_id=%d, syscall_id=%d\n", eid, tracee->syscall->uuid);
 			}
 
 		} else {
@@ -264,6 +268,12 @@ int do_trace()
 				tracee->event_seq.push_back(tracee->syscall->exit_event);
 				tracee->proc->event_seq.push_back(tracee->syscall->exit_event);
 
+				if(options.log_syscalls) {
+					fprintf(stderr,
+					  " ++ event_id=%d, syscall_id=%d\n",
+					  tracee->syscall->exit_event->uuid,
+					  tracee->syscall->uuid);
+				}
 				tracee->syscall->finish();
 			}
 			if(tracee->sysnum == SYS_execve && tracee->syscall_rip == (uint64_t)-1) {

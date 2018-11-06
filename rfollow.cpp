@@ -24,6 +24,11 @@ void followrun_dumpall()
 
 bool followrun_step(struct thread_tr *tracee)
 {
+	if(followruns.size() == 0) {
+		/* no more graphs! */
+		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
+		return true;
+	}
 	// fprintf(stderr, "STEP\n");
 	if(tracee->syscall == NULL)
 		return false;
@@ -37,15 +42,17 @@ bool followrun_step(struct thread_tr *tracee)
 	for(auto run : followruns) {
 		struct thread_tr *rthread = run->thread_list[tracee->id];
 		event *rte = rthread->event_seq[last_event_idx];
+		fprintf(stderr, " :: %s %s\n", tracee->proc->invoke, rthread->proc->invoke);
 		fprintf(stderr,
-		  "  :: %ld %ld %ld %ld\n",
-		  rte->sc->number,
-		  rte->uuid,
+		  "  :: event: got %ld (exp %ld) %d (exp %d)\n",
 		  last_event->sc->number,
-		  last_event->uuid);
+		  rte->sc->number,
+		  last_event->uuid,
+		  rte->uuid);
 		if(rte->sc->number != last_event->sc->number || rte->uuid != last_event->uuid) {
 			fprintf(stderr, "\n\n******************** FELL OFF\n\n");
-			exit(1);
+			followrun_del(run);
+			return followrun_step(tracee);
 		}
 	}
 	return false;
