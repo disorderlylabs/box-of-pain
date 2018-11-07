@@ -14,6 +14,7 @@ struct options {
 	bool log_sockets;
 	bool log_follow;
 	bool log_run;
+	bool follow_stats;
 };
 
 extern struct options options;

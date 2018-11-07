@@ -13,7 +13,9 @@ extern struct run current_run;
 
 class connection;
 class sock;
-struct run {
+class run
+{
+  public:
 	const char *name;
 	/* list of all traced processes in the system */
 	std::vector<struct proc_tr *> proc_list;
@@ -26,10 +28,12 @@ struct run {
 
 	std::vector<connection *> connection_list;
 	/*A map of tids to thread structures*/
-	std::unordered_map<int, struct thread_tr *> traces; 
+	std::unordered_map<int, struct thread_tr *> traces;
 
-	std::unordered_map<int, std::unordered_map<int, class sock *> > sockets;
+	std::unordered_map<int, std::unordered_map<int, class sock *>> sockets;
 	std::unordered_map<connid, connection *> connections;
+
+	bool fell_off = false;
 };
 
 extern struct run current_run;
@@ -42,4 +46,5 @@ void followrun_del(struct run *run);
 void followrun_add(struct run *run);
 bool followrun_step(struct thread_tr *tracee);
 void followrun_dumpall();
+bool followrun_stats();
 void dump(const char *, struct run *run);

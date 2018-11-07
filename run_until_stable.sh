@@ -7,8 +7,12 @@ fi
 
 trap "echo Exited!; exit;" SIGINT SIGTERM
 
+clear
+
+let iter=0
 while true; do
 	runs=""
+	let iter++
 	let max=0
 	let count=0
 	for filename in $(ls $DIR | grep '\.boprun$'); do
@@ -23,7 +27,10 @@ while true; do
 		fi
 	done
 
-	echo "=== STARTING RUN $max, (found $count runs) ==="
+	sleep 0.01
+	clear
+	echo -ne "\e[H"
+	echo "=== STARTING RUN $max, (found $count runs) (iter # $iter) ==="
 	./painbox -d $runs -s $DIR/$max.boprun "$@"
 	res=$?
 	if [[ "$res" == "255" ]]; then
@@ -37,9 +44,9 @@ while true; do
 			exit 0
 		fi
 	else
-		echo FELL
 		m4 $DIR/$max.boprun.m4 > $DIR/$max.dot
 		dot -Tpdf -o $DIR/$max.pdf $DIR/$max.dot
+		clear
 	fi
 
 	# we fell off!

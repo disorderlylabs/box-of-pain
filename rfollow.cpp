@@ -3,13 +3,15 @@
 #include <unordered_set>
 
 static std::unordered_set<run *> followruns;
+static std::unordered_set<run *> all_followruns;
 
-void followrun_add(struct run *run)
+void followrun_add(run *run)
 {
 	followruns.insert(run);
+	all_followruns.insert(run);
 }
 
-void followrun_del(struct run *run)
+void followrun_del(run *run)
 {
 	followruns.erase(run);
 }
@@ -20,6 +22,13 @@ void followrun_dumpall()
 		dump(r->name, r);
 	}
 	dump(current_run.name, &current_run);
+}
+
+bool followrun_stats()
+{
+	for(auto run : all_followruns) {
+		fprintf(stderr, "%20s: %s\n", run->name, run->fell_off ? "fell off" : "followed");
+	}
 }
 
 bool followrun_step(struct thread_tr *tracee)
@@ -46,7 +55,12 @@ bool followrun_step(struct thread_tr *tracee)
 		if(rte->sc->number != last_event->sc->number || rte->uuid != last_event->uuid) {
 			if(options.log_follow) {
 				fprintf(stderr, "== Fell off %s ==\n", run->name);
-				fprintf(stderr, "  :: %s %s\n", tracee->proc->invoke, rthread->proc->invoke);
+				fprintf(stderr,
+				  "  :: (%d)%s (%d)%s",
+				  tracee->id,
+				  tracee->proc->invoke,
+				  rthread->id,
+				  rthread->proc->invoke);
 				fprintf(stderr,
 				  "  :: event: got %ld (exp %ld) %d (exp %d)\n",
 				  last_event->sc->number,
@@ -54,6 +68,7 @@ bool followrun_step(struct thread_tr *tracee)
 				  last_event->uuid,
 				  rte->uuid);
 			}
+			run->fell_off = true;
 			followrun_del(run);
 			return followrun_step(tracee);
 		}

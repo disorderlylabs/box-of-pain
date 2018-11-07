@@ -411,6 +411,8 @@ int main(int argc, char **argv)
 						options.log_follow = true;
 					} else if(!strcmp(tok, "run")) {
 						options.log_run = true;
+					} else if(!strcmp(tok, "stats")) {
+						options.follow_stats = true;
 					} else {
 						fprintf(stderr, "Unknown logging type: %s\n", tok);
 						exit(255);
@@ -593,6 +595,10 @@ int main(int argc, char **argv)
 			run_serialize(&current_run, sout);
 			fclose(sout);
 		}
+	}
+
+	if(options.follow_stats) {
+		followrun_stats();
 	}
 
 	if(current_mode == OPMODE_TRACE && options.dump) {
