@@ -10,6 +10,16 @@
 #define S_PEER 2
 #define S_ADDR 4
 
+/* test two sockaddrs for equality */
+static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
+{
+	if(a->sa_family != b->sa_family)
+		return false;
+	struct sockaddr_in *ain = (struct sockaddr_in *)a;
+	struct sockaddr_in *bin = (struct sockaddr_in *)b;
+	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
+}
+
 class connection;
 class Syscall;
 class Sysconnect;
@@ -31,6 +41,11 @@ class sock
 	struct noconnection *nconn;
 	sock()
 	{
+	}
+
+	bool approx_eq(sock *other)
+	{
+		return flags != other->flags || !sa_eq(&addr, &other->addr) || !sa_eq(&peer, &other->peer);
 	}
 
 	void serialize(FILE *);
@@ -120,16 +135,6 @@ static inline void serialize_sockaddr(FILE *f, struct sockaddr *addr, socklen_t 
 {
 	struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
 	// fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
-}
-
-/* test two sockaddrs for equality */
-static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
-{
-	if(a->sa_family != b->sa_family)
-		return false;
-	struct sockaddr_in *ain = (struct sockaddr_in *)a;
-	struct sockaddr_in *bin = (struct sockaddr_in *)b;
-	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
 }
 
 /* this is a simple hash function. */

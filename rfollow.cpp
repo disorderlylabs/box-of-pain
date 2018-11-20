@@ -54,8 +54,9 @@ bool followrun_step(struct thread_tr *tracee)
 
 		if(other_event->entry != last_event->entry || other_event->uuid != last_event->uuid
 		   || other_event->sc->number != last_event->sc->number
-		   || !other_event->sc->approx_eq(last_event->sc)) {
+		   || !other_event->sc->approx_eq(last_event->sc, !last_event->entry ? SC_EQ_RET : 0)) {
 			fprintf(stderr, "!! %s\n", syscall_table[other_event->sc->number].name);
+			getchar();
 		}
 
 		if(other_event->sc->number != last_event->sc->number

@@ -33,6 +33,8 @@ static int set_syscall_param(int tid, int reg, long value)
 	return ptrace(PTRACE_POKEUSER, tid, sizeof(long) * reg, value);
 }
 
+#define SC_EQ_RET 1
+
 class Syscall;
 /* an event is a syscall entry or exit. NOTE: we may extend this to
  * include signals, perhaps. Need to think about the semantics of this. */
@@ -102,7 +104,7 @@ class Syscall
 		(void)f;
 	};
 
-	virtual bool approx_eq(Syscall *other)
+	virtual bool approx_eq(Syscall *other, int flags)
 	{
 		fprintf(stderr, ":: %ld %ld\n", other->params[0], this->params[0]);
 		fprintf(stderr, ":: %ld %ld\n", other->params[1], this->params[1]);
@@ -113,7 +115,7 @@ class Syscall
 		for(int i = 0; i < nr_args; i++)
 			if(other->params[i] != this->params[i])
 				return false;
-		return true;
+		return flags & SC_EQ_RET ? other->retval == this->retval : true;
 	}
 
 	Syscall(int ftid, long num)
@@ -157,6 +159,16 @@ class sockop
 {
   public:
 	class sock *sock = NULL;
+
+	virtual bool approx_eq(Syscall *_o, int flags __unused)
+	{
+		sockop *other = dynamic_cast<sockop *>(_o);
+		if(sock != NULL && other->get_socket() != NULL)
+			return sock->approx_eq(other->get_socket());
+		else
+			return sock == other->get_socket();
+	}
+
 	class sock *get_socket()
 	{
 		return sock;
@@ -214,6 +226,11 @@ class Sysclose
 	{
 		sockop::run_load(run, f);
 	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+	}
 };
 
 class Sysbind
@@ -229,6 +246,7 @@ class Sysbind
 	  : Syscall()
 	{
 	}
+
 	void start()
 	{
 		struct sockaddr addr;
@@ -247,6 +265,11 @@ class Sysbind
 	void run_load(struct run *run, FILE *f)
 	{
 		sockop::run_load(run, f);
+	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
 	}
 };
 
@@ -268,6 +291,11 @@ class Sysconnect
 	void finish();
 	void serialize(FILE *);
 	void run_load(struct run *run, FILE *f);
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+	}
 };
 
 class Sysaccept
@@ -289,6 +317,11 @@ class Sysaccept
 	void finish();
 	void serialize(FILE *);
 	void run_load(struct run *run, FILE *f);
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+	}
 };
 
 class Sysaccept4 : public Sysaccept
@@ -328,11 +361,16 @@ class Syswrite
 	{
 		sockop::run_load(run, f);
 	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+	}
 };
 
 class Sysread
-  : public Syscall
-  , public sockop
+  : public sockop
+  , public Syscall
 {
   public:
 	Sysread(int fpid, long n)
@@ -353,6 +391,11 @@ class Sysread
 	void run_load(struct run *run, FILE *f)
 	{
 		sockop::run_load(run, f);
+	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
 	}
 };
 
@@ -381,6 +424,11 @@ class Sysrecvfrom
 	{
 		sockop::run_load(run, f);
 	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+	}
 };
 
 class Syssendto
@@ -408,5 +456,10 @@ class Syssendto
 	void run_load(struct run *run, FILE *f)
 	{
 		sockop::run_load(run, f);
+	}
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return sockop::approx_eq(o, flags)
+		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
 	}
 };
