@@ -17,7 +17,6 @@
 
 #include "helper.h"
 #include "run.h"
-#include "scnames.h"
 #include "sockets.h"
 #include "sys.h"
 #include "tracee.h"
@@ -212,7 +211,7 @@ int do_trace()
 				  "[%d: %d]: %s entry\n",
 				  tracee->id,
 				  tracee->tid,
-				  syscall_names[tracee->sysnum]);
+				  syscall_table[tracee->sysnum].name);
 			}
 			tracee->syscall = NULL;
 			if(syscallmap[tracee->sysnum]) {
@@ -251,7 +250,7 @@ int do_trace()
 				  "[%d: %d]: %s exit -> %ld\n",
 				  tracee->id,
 				  tracee->tid,
-				  syscall_names[tracee->sysnum],
+				  syscall_table[tracee->sysnum].name,
 				  retval);
 			}
 			if(tracee->syscall) {

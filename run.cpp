@@ -1,15 +1,15 @@
+#include "run.h"
 #include <cstdio>
 #include <cstring>
-#include "run.h"
-template <typename T>
-static T *growcreate(std::vector<T*> *v, size_t idx)
+template<typename T>
+static T *growcreate(std::vector<T *> *v, size_t idx)
 {
-	if(idx >= v->size()) v->resize(idx+1);
+	if(idx >= v->size())
+		v->resize(idx + 1);
 	if((*v)[idx] == NULL)
 		(*v)[idx] = new T();
 	return (*v)[idx];
 }
-
 
 void event::serialize(FILE *f)
 {
@@ -18,32 +18,43 @@ void event::serialize(FILE *f)
 
 void sock::serialize(FILE *f)
 {
-	fprintf(f, "SOCK %ld %d %d %d %d\n",
-			uuid, flags, sockfd, proc->id, fromthread->id);
-	fprintf(f, "  addr "); serialize_sockaddr(f, &addr, addrlen);
-	fprintf(f, "\n  peer "); serialize_sockaddr(f, &peer, peerlen);
+	fprintf(f, "SOCK %ld %d %d %d %d\n", uuid, flags, sockfd, proc->id, fromthread->id);
+	fprintf(f, "  addr ");
+	serialize_sockaddr(f, &addr, addrlen);
+	fprintf(f, "\n  peer ");
+	serialize_sockaddr(f, &peer, peerlen);
 	fprintf(f, "\n");
 }
 
 void connection::serialize(FILE *f)
 {
-	fprintf(f, "CONN %d %ld %ld %d %d\n",
-			uuid, connside->uuid, accside ? accside->uuid : -1, conn->uuid, acc ? acc->uuid : -1);
+	fprintf(f,
+	  "CONN %d %ld %ld %d %d\n",
+	  uuid,
+	  connside->uuid,
+	  accside ? accside->uuid : -1,
+	  conn->uuid,
+	  acc ? acc->uuid : -1);
 }
 
 void serialize_thread(struct thread_tr *t, FILE *f)
 {
-	fprintf(f, "THREAD %d %d %d %ld\n",
-			t->id, t->tid, t->proc->id, t->event_seq.size());
+	fprintf(f, "THREAD %d %d %d %ld\n", t->id, t->tid, t->proc->id, t->event_seq.size());
 }
 
 void serialize_proc(struct proc_tr *p, FILE *f)
 {
-	fprintf(f, "PROCESS %d %d %d %d %ld %s\n",
-			p->id, p->pid, p->ecode, p->exited, p->proc_thread_list.size(), p->invoke);
+	fprintf(f,
+	  "PROCESS %d %d %d %d %ld %s\n",
+	  p->id,
+	  p->pid,
+	  p->ecode,
+	  p->exited,
+	  p->proc_thread_list.size(),
+	  p->invoke);
 }
 
-void sockop::run_load(struct run *run, FILE *f)
+void sockop::run_load(class run *run, FILE *f)
 {
 	int sid;
 	fscanf(f, "  sockop %d\n", &sid);
@@ -53,7 +64,7 @@ void sockop::run_load(struct run *run, FILE *f)
 		sock = NULL;
 }
 
-void Sysaccept::run_load(struct run *run, FILE *f)
+void Sysaccept::run_load(class run *run, FILE *f)
 {
 	sockop::run_load(run, f);
 	int ssockid;
@@ -64,7 +75,7 @@ void Sysaccept::run_load(struct run *run, FILE *f)
 		serversock = NULL;
 }
 
-void Sysconnect::run_load(struct run *run, FILE *f)
+void Sysconnect::run_load(class run *run, FILE *f)
 {
 	sockop::run_load(run, f);
 }
@@ -77,12 +88,13 @@ void Sysaccept::serialize(FILE *f)
 	fprintf(f, "serversock %ld\n", serversock ? serversock->uuid : -1);
 }
 
-void Sysconnect::serialize(FILE *f) {
+void Sysconnect::serialize(FILE *f)
+{
 	Syscall::serialize(f);
 	sockop::serialize(f);
 }
 
-void run_serialize(struct run *run, FILE *f)
+void run_serialize(class run *run, FILE *f)
 {
 	for(auto s : run->syscall_list) {
 		s->serialize(f);
@@ -122,8 +134,8 @@ static inline bool startswith(const char *str, const char *sw)
 	return strncmp(str, sw, strlen(sw)) == 0;
 }
 
-extern Syscall * (*syscallmap_inactive[1024])();
-void run_load(struct run *run, FILE *f)
+extern Syscall *(*syscallmap_inactive[1024])();
+void run_load(class run *run, FILE *f)
 {
 	char *line = NULL;
 	size_t ls = 0;
@@ -134,14 +146,14 @@ void run_load(struct run *run, FILE *f)
 			size_t ptls;
 			sscanf(line, "PROCESS %d %d %d %d %ld %n", &id, &pid, &ecode, &exited, &ptls, &tmp);
 			char *invoke = line + tmp;
-			//printf("-> %d %d %d %d %d %s\n", id, pid, ecode, exited, tmp, invoke);
+			// printf("-> %d %d %d %d %d %s\n", id, pid, ecode, exited, tmp, invoke);
 			struct proc_tr *np = growcreate(&run->proc_list, id);
 			np->id = id;
 			np->pid = pid;
 			np->ecode = ecode;
 			np->exited = exited;
 			np->invoke = strdup(invoke);
-			for(size_t i=0;i<ptls && getline(&line, &ls, f);i++) {
+			for(size_t i = 0; i < ptls && getline(&line, &ls, f); i++) {
 				int th_id;
 				sscanf(line, "  thread %d", &th_id);
 				struct thread_tr *th = growcreate(&run->thread_list, th_id);
@@ -155,7 +167,7 @@ void run_load(struct run *run, FILE *f)
 			th->id = id;
 			th->tid = tid;
 			th->proc = growcreate(&run->proc_list, pr_id);
-			for(size_t i=0;i<ess && getline(&line, &ls, f);i++) {
+			for(size_t i = 0; i < ess && getline(&line, &ls, f); i++) {
 				size_t pcount;
 				int sc, ent, uuid, trid;
 				/* TODO: proc->event_seq */
@@ -165,10 +177,12 @@ void run_load(struct run *run, FILE *f)
 				e->sc = run->syscall_list[sc];
 				e->trid = trid;
 				e->uuid = uuid;
-				if(ent) e->sc->entry_event = e;
-				else e->sc->exit_event = e;
+				if(ent)
+					e->sc->entry_event = e;
+				else
+					e->sc->exit_event = e;
 				e->sc->thread = th;
-				for(size_t j=0;j<pcount && getline(&line, &ls, f);j++) {
+				for(size_t j = 0; j < pcount && getline(&line, &ls, f); j++) {
 					int patr, paid;
 					sscanf(line, "    event %d %d", &paid, &patr);
 					struct thread_tr *parent_th = growcreate(&run->thread_list, patr);
@@ -180,8 +194,21 @@ void run_load(struct run *run, FILE *f)
 			int uuid, fromtid, frompid, rv, succ;
 			long number, p0, p1, p2, p3, p4, p5;
 			char lid[32];
-			sscanf(line, "SYSCALL %d %d %d %s %ld %ld %ld %ld %ld %ld %ld %d %d",
-					&uuid, &fromtid, &frompid, lid, &number, &p0, &p1, &p2, &p3, &p4, &p5, &rv, &succ);
+			sscanf(line,
+			  "SYSCALL %d %d %d %s %ld %ld %ld %ld %ld %ld %ld %d %d",
+			  &uuid,
+			  &fromtid,
+			  &frompid,
+			  lid,
+			  &number,
+			  &p0,
+			  &p1,
+			  &p2,
+			  &p3,
+			  &p4,
+			  &p5,
+			  &rv,
+			  &succ);
 			Syscall *sc = syscallmap_inactive[number]();
 			sc->uuid = uuid;
 			sc->fromtid = fromtid;
@@ -227,8 +254,7 @@ void run_load(struct run *run, FILE *f)
 		} else if(startswith(line, "CONN")) {
 			int uuid, sysconid, sysaccid;
 			long aid, cid;
-			sscanf(line, "CONN %d %ld %ld %d %d",
-					&uuid, &cid, &aid, &sysconid, &sysaccid);
+			sscanf(line, "CONN %d %ld %ld %d %d", &uuid, &cid, &aid, &sysconid, &sysaccid);
 			connection *c = growcreate(&run->connection_list, uuid);
 			Sysconnect *syscon = (Sysconnect *)run->syscall_list[sysconid];
 			Sysaccept *sysacc = (Sysaccept *)(sysaccid == -1 ? NULL : run->syscall_list[sysaccid]);
@@ -246,4 +272,3 @@ void run_load(struct run *run, FILE *f)
 
 	/* phase 2: construct unordered maps? */
 }
-

@@ -1,5 +1,4 @@
 #include "run.h"
-#include "scnames.h"
 #include <unordered_set>
 
 static std::unordered_set<run *> followruns;
@@ -50,23 +49,31 @@ bool followrun_step(struct thread_tr *tracee)
 	// syscall_names[last_event->sc->number],
 	// last_event->entry);
 	for(auto run : followruns) {
-		struct thread_tr *rthread = run->thread_list[tracee->id];
-		event *rte = rthread->event_seq[last_event_idx];
-		if(rte->sc->number != last_event->sc->number || rte->uuid != last_event->uuid) {
+		struct thread_tr *followed_thread = run->thread_list[tracee->id];
+		event *other_event = followed_thread->event_seq[last_event_idx];
+
+		if(other_event->entry != last_event->entry || other_event->uuid != last_event->uuid
+		   || other_event->sc->number != last_event->sc->number
+		   || !other_event->sc->approx_eq(last_event->sc)) {
+			fprintf(stderr, "!! %s\n", syscall_table[other_event->sc->number].name);
+		}
+
+		if(other_event->sc->number != last_event->sc->number
+		   || other_event->uuid != last_event->uuid) {
 			if(options.log_follow) {
 				fprintf(stderr, "== Fell off %s ==\n", run->name);
 				fprintf(stderr,
 				  "  :: (%d)%s (%d)%s",
 				  tracee->id,
 				  tracee->proc->invoke,
-				  rthread->id,
-				  rthread->proc->invoke);
+				  followed_thread->id,
+				  followed_thread->proc->invoke);
 				fprintf(stderr,
 				  "  :: event: got %ld (exp %ld) %d (exp %d)\n",
 				  last_event->sc->number,
-				  rte->sc->number,
+				  other_event->sc->number,
 				  last_event->uuid,
-				  rte->uuid);
+				  other_event->uuid);
 			}
 			run->fell_off = true;
 			followrun_del(run);
