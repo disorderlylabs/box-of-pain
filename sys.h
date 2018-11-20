@@ -293,8 +293,10 @@ class Sysconnect
 	void run_load(struct run *run, FILE *f);
 	bool approx_eq(Syscall *o, int flags)
 	{
-		return sockop::approx_eq(o, flags)
-		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+		if(flags & SC_EQ_RET) {
+			return sockop::approx_eq(o, flags) && o->retval == this->retval;
+		}
+		return true;
 	}
 };
 
@@ -319,8 +321,17 @@ class Sysaccept
 	void run_load(struct run *run, FILE *f);
 	bool approx_eq(Syscall *o, int flags)
 	{
-		return sockop::approx_eq(o, flags)
-		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
+		Sysaccept *other = dynamic_cast<Sysaccept *>(o);
+		if(other->serversock && serversock) {
+			if(!serversock->approx_eq(other->serversock))
+				return false;
+		}
+		if(flags & SC_EQ_RET) {
+			/* TODO: this may be too strict. What about other ordering of fd returns? we should
+			 * allow for return values from functions like these to vary a bit. */
+			return sockop::approx_eq(o, flags) && o->retval == this->retval;
+		}
+		return true;
 	}
 };
 

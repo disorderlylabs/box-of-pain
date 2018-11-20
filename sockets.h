@@ -45,7 +45,24 @@ class sock
 
 	bool approx_eq(sock *other)
 	{
-		return flags != other->flags || !sa_eq(&addr, &other->addr) || !sa_eq(&peer, &other->peer);
+		fprintf(stderr, ":: %d %d\n", flags, other->flags);
+		//	const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
+		char buf[128];
+		struct sockaddr_in *ta = (struct sockaddr_in *)&addr;
+		struct sockaddr_in *oa = (struct sockaddr_in *)&other->addr;
+		struct sockaddr_in *tp = (struct sockaddr_in *)&peer;
+		struct sockaddr_in *op = (struct sockaddr_in *)&other->peer;
+		inet_ntop(AF_INET, &ta->sin_addr, buf, sizeof(buf));
+		fprintf(stderr, ":: %s:%d", buf, ntohs(ta->sin_port));
+		inet_ntop(AF_INET, &oa->sin_addr, buf, sizeof(buf));
+		fprintf(stderr, " %s:%d", buf, ntohs(oa->sin_port));
+
+		inet_ntop(AF_INET, &tp->sin_addr, buf, sizeof(buf));
+		fprintf(stderr, " ::::: %s:%d", buf, ntohs(tp->sin_port));
+		inet_ntop(AF_INET, &op->sin_addr, buf, sizeof(buf));
+		fprintf(stderr, " %s:%d", buf, ntohs(op->sin_port));
+		fprintf(stderr, "\n");
+		return flags == other->flags && sa_eq(&addr, &other->addr) && sa_eq(&peer, &other->peer);
 	}
 
 	void serialize(FILE *);
