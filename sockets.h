@@ -151,7 +151,7 @@ void sock_discover_addresses(struct sock *sock);
 static inline void serialize_sockaddr(FILE *f, struct sockaddr *addr, socklen_t len)
 {
 	struct sockaddr_in *inaddr = (struct sockaddr_in *)addr;
-	// fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
+	fprintf(f, "sockaddr_in (%d)%d:%s", len, inaddr->sin_port, inet_ntoa(inaddr->sin_addr));
 }
 
 /* this is a simple hash function. */
