@@ -34,6 +34,8 @@ static int set_syscall_param(int tid, int reg, long value)
 }
 
 #define SC_EQ_RET 1
+#define SC_EQ_ADDR_EPH 2
+#define SC_EQ_PEER_EPH 4
 
 class Syscall;
 /* an event is a syscall entry or exit. NOTE: we may extend this to
@@ -164,7 +166,8 @@ class sockop
 	{
 		sockop *other = dynamic_cast<sockop *>(_o);
 		if(sock != NULL && other->get_socket() != NULL)
-			return sock->approx_eq(other->get_socket());
+			return sock->approx_eq(
+			  other->get_socket(), flags & SC_EQ_ADDR_EPH, flags & SC_EQ_PEER_EPH);
 		else
 			return sock == other->get_socket();
 	}
@@ -294,7 +297,7 @@ class Sysconnect
 	bool approx_eq(Syscall *o, int flags)
 	{
 		if(flags & SC_EQ_RET) {
-			return sockop::approx_eq(o, flags) && o->retval == this->retval;
+			return sockop::approx_eq(o, flags | SC_EQ_ADDR_EPH) && o->retval == this->retval;
 		}
 		return true;
 	}
@@ -329,7 +332,7 @@ class Sysaccept
 		if(flags & SC_EQ_RET) {
 			/* TODO: this may be too strict. What about other ordering of fd returns? we should
 			 * allow for return values from functions like these to vary a bit. */
-			return sockop::approx_eq(o, flags) && o->retval == this->retval;
+			return sockop::approx_eq(o, flags | SC_EQ_PEER_EPH) && o->retval == this->retval;
 		}
 		return true;
 	}

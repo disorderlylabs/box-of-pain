@@ -59,7 +59,8 @@ class sock *sock_lookup_addr(struct run *run, struct sockaddr *addr, socklen_t a
 	for(auto sm : run->sockets) {
 		for(auto p : sm.second) {
 			class sock *sock = p.second;
-			if((sock->flags & S_ASSOC) && addrlen == sock->addrlen && sa_eq(addr, &sock->addr)) {
+			if((sock->flags & S_ASSOC) && addrlen == sock->addrlen
+			   && sa_eq(addr, &sock->addr, false, true)) {
 				return sock;
 			}
 		}

@@ -28,9 +28,10 @@ while true; do
 	done
 
 	sleep 0.01
-	clear
-	echo -ne "\e[H"
+	#clear
+	#echo -ne "\e[H"
 	echo "=== STARTING RUN $max, (found $count runs) (iter # $iter) ==="
+	echo "./painbox -d $runs -s $DIR/$max.boprun " "$@"
 	./painbox -d $runs -s $DIR/$max.boprun "$@"
 	res=$?
 	if [[ "$res" == "255" ]]; then
@@ -46,7 +47,7 @@ while true; do
 	else
 		m4 $DIR/$max.boprun.m4 > $DIR/$max.dot
 		dot -Tpdf -o $DIR/$max.pdf $DIR/$max.dot
-		clear
+		#clear
 	fi
 
 	# we fell off!

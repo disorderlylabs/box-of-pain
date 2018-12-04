@@ -10,14 +10,42 @@
 #define S_PEER 2
 #define S_ADDR 4
 
-/* test two sockaddrs for equality */
-static inline bool sa_eq(const struct sockaddr *a, const struct sockaddr *b)
+static inline bool is_ephemeral(unsigned short port_network_order)
 {
+	return ntohs(port_network_order) >= 32768;
+}
+
+/* test two sockaddrs for equality */
+static inline bool sa_eq(const struct sockaddr *a,
+  const struct sockaddr *b,
+  bool ignore_port = false,
+  bool exact = false)
+{
+	// fprintf(stderr, "A %d %d\n", a->sa_family, b->sa_family);
 	if(a->sa_family != b->sa_family)
 		return false;
 	struct sockaddr_in *ain = (struct sockaddr_in *)a;
 	struct sockaddr_in *bin = (struct sockaddr_in *)b;
-	return ain->sin_addr.s_addr == bin->sin_addr.s_addr && ain->sin_port == bin->sin_port;
+	// fprintf(stderr, "B %x %x\n", ain->sin_addr.s_addr, bin->sin_addr.s_addr);
+	if(ain->sin_addr.s_addr != bin->sin_addr.s_addr)
+		return false;
+	if(exact && ain->sin_port != bin->sin_port && !ignore_port)
+		return false;
+
+	if(!ignore_port) {
+		// fprintf(stderr, "C %d %d\n", is_ephemeral(ain->sin_port), is_ephemeral(bin->sin_port));
+		if(is_ephemeral(ain->sin_port) != is_ephemeral(bin->sin_port))
+			return false;
+		// fprintf(stderr, "D %d %d\n", ntohs(ain->sin_port), ntohs(bin->sin_port));
+		if(!is_ephemeral(ain->sin_port) && !is_ephemeral(bin->sin_port)
+		   && bin->sin_port != ain->sin_port) {
+			return false;
+		}
+	}
+
+	return true;
+	// return ain->sin_addr.s_addr == bin->sin_addr.s_addr
+	//       && (ain->sin_port == bin->sin_port || ignore_port);
 }
 
 class connection;
@@ -43,8 +71,9 @@ class sock
 	{
 	}
 
-	bool approx_eq(sock *other)
+	bool approx_eq(sock *other, bool ign_addr_port = false, bool ign_peer_port = false)
 	{
+#if 0
 		fprintf(stderr, ":: %d %d\n", flags, other->flags);
 		//	const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 		char buf[128];
@@ -61,8 +90,15 @@ class sock
 		fprintf(stderr, " ::::: %s:%d", buf, ntohs(tp->sin_port));
 		inet_ntop(AF_INET, &op->sin_addr, buf, sizeof(buf));
 		fprintf(stderr, " %s:%d", buf, ntohs(op->sin_port));
-		fprintf(stderr, "\n");
-		return flags == other->flags && sa_eq(&addr, &other->addr) && sa_eq(&peer, &other->peer);
+		fprintf(stderr,
+		  " :: %d %d %d\n",
+		  flags == other->flags,
+		  flags & S_ADDR ? sa_eq(&addr, &other->addr) : true,
+		  flags & S_PEER ? sa_eq(&peer, &other->peer) : true);
+#endif
+		return flags == other->flags
+		       && ((flags & S_ADDR) ? sa_eq(&addr, &other->addr, ign_addr_port, false) : true)
+		       && ((flags & S_PEER) ? sa_eq(&peer, &other->peer, ign_peer_port, false) : true);
 	}
 
 	void serialize(FILE *);
@@ -188,8 +224,9 @@ class connid
 	}
 	bool operator==(const connid &other) const
 	{
-		return p1len == other.p1len && p2len == other.p2len && sa_eq(&peer1, &other.peer1)
-		       && sa_eq(&peer2, &other.peer2);
+		return p1len == other.p1len && p2len == other.p2len
+		       && sa_eq(&peer1, &other.peer1, false, true)
+		       && sa_eq(&peer2, &other.peer2, false, true);
 	}
 	struct sockaddr peer1, peer2;
 	socklen_t p1len, p2len;

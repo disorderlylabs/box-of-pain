@@ -243,6 +243,7 @@ void run_load(class run *run, FILE *f)
 			inet_pton(AF_INET, addr, &saaddr.sin_addr);
 			saaddr.sin_port = port;
 			s->addr = *(struct sockaddr *)&saaddr;
+			s->addr.sa_family = AF_INET;
 
 			getline(&line, &ls, f);
 			sscanf(line, "  peer sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
@@ -250,6 +251,7 @@ void run_load(class run *run, FILE *f)
 			inet_pton(AF_INET, addr, &sapeer.sin_addr);
 			sapeer.sin_port = port;
 			s->peer = *(struct sockaddr *)&sapeer;
+			s->peer.sa_family = AF_INET;
 
 		} else if(startswith(line, "CONN")) {
 			int uuid, sysconid, sysaccid;
