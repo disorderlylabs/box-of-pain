@@ -45,6 +45,7 @@ class event
   public:
 	Syscall *sc;
 	bool entry, pending;
+	int err_code;
 	int trid, uuid;
 	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;
@@ -80,6 +81,7 @@ class Syscall
 	 * succeeded while making it fail (by setting fd to -1). */
 	bool ret_success = false;
 	enum syscall_state state;
+	int ret_err = 0;
 
 	virtual void serialize(FILE *f)
 	{
@@ -134,6 +136,11 @@ class Syscall
 
 	Syscall()
 	{
+	}
+
+	void set_return_value(int val)
+	{
+		set_syscall_param(fromtid, RAX, val);
 	}
 
 	virtual void finish()

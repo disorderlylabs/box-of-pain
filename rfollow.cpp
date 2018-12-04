@@ -55,12 +55,6 @@ bool followrun_step(struct thread_tr *tracee)
 		if(other_event->entry != last_event->entry || other_event->uuid != last_event->uuid
 		   || other_event->sc->number != last_event->sc->number
 		   || !other_event->sc->approx_eq(last_event->sc, !last_event->entry ? SC_EQ_RET : 0)) {
-			fprintf(stderr, "!! %s\n", syscall_table[other_event->sc->number].name);
-			getchar();
-		}
-
-		if(other_event->sc->number != last_event->sc->number
-		   || other_event->uuid != last_event->uuid) {
 			if(options.log_follow) {
 				fprintf(stderr, "== Fell off %s ==\n", run->name);
 				fprintf(stderr,
@@ -79,6 +73,13 @@ bool followrun_step(struct thread_tr *tracee)
 			run->fell_off = true;
 			followrun_del(run);
 			return followrun_step(tracee);
+		}
+		/* this is still a valid graph */
+		if(other_event->err_code) {
+			/* inject a fault */
+			last_event->err_code = other_event->err_code;
+			last_event->sc->ret_err = other_event->err_code;
+			last_event->sc->set_return_value(other_event->err_code);
 		}
 	}
 	return false;

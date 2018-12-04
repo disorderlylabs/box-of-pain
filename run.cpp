@@ -266,6 +266,12 @@ void run_load(class run *run, FILE *f)
 			c->accside = aside;
 			c->conn = syscon;
 			c->acc = sysacc;
+		} else if(startswith(line, "FAULT")) {
+			int th_id, ev_id, err_code;
+			sscanf(line, "FAULT %d %d %d", &th_id, &ev_id, &err_code);
+			struct thread_tr *th = run->thread_list[th_id];
+			event *ev = th->event_seq[ev_id];
+			ev->err_code = err_code;
 		} else {
 			fprintf(stderr, "Cannot parse line: %s", line);
 			exit(1);
