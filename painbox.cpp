@@ -325,13 +325,14 @@ int main(int argc, char **argv)
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; // 0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTCfs:r:wSl:")) != EOF) {
+	while((r = getopt(argc, argv, "e:dhTCfs:r:R:wSl:")) != EOF) {
 		FILE *rf;
 		run *run;
 		switch(r) {
 			case 'w':
 				options.wait = true;
 				break;
+			case 'R':
 			case 'r':
 				rf = fopen(optarg, "r");
 				if(rf == NULL) {
@@ -347,6 +348,10 @@ int main(int argc, char **argv)
 				followrun_add(run);
 				current_mode = OPMODE_FOLLOW;
 
+				if(r == 'R') {
+					dump("run", run);
+					exit(0);
+				}
 				// dump("run", run);
 				// exit(0);
 				break;

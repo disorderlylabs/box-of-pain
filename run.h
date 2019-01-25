@@ -10,7 +10,7 @@ extern struct run current_run;
 #include "sockets.h"
 #include "sys.h"
 #include "tracee.h"
-
+#include <set>
 class connection;
 class sock;
 class run
@@ -32,6 +32,8 @@ class run
 
 	std::unordered_map<int, std::unordered_map<int, class sock *>> sockets;
 	std::unordered_map<connid, connection *> connections;
+
+	std::set<std::pair<int, int>> fault_node_set;
 
 	bool fell_off = false;
 };

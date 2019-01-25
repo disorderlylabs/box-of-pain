@@ -60,6 +60,8 @@ void dump(const char *name, struct run *run)
 				  e->sc->localid.c_str());
 			}
 
+			bool is_faulted = run->fault_node_set.find(std::pair<int, int>(tr->id, e->uuid))
+			                  != run->fault_node_set.end();
 			if(e->entry) {
 				fprintf(dotdefs,
 				  "e%s "
@@ -71,7 +73,7 @@ void dump(const char *name, struct run *run)
 				  sockinfo.c_str(),
 				  "",
 				  tr->tid,
-				  "#00ff0011");
+				  is_faulted ? "#6600ff88" : "#00ff0011");
 
 				fprintf(dotdefs,
 				  "x%s "
@@ -82,7 +84,7 @@ void dump(const char *name, struct run *run)
 				  sockinfo.c_str(),
 				  std::to_string((long)e->sc->retval).c_str(),
 				  tr->tid,
-				  "#ff000011");
+				  is_faulted ? "#ff00ff88" : "#ff000011");
 			}
 		}
 		fprintf(dotout, "exit%d;\n", tr->tid);

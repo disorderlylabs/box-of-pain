@@ -267,8 +267,15 @@ void run_load(class run *run, FILE *f)
 			c->conn = syscon;
 			c->acc = sysacc;
 		} else if(startswith(line, "FAULT")) {
+			int th_id, ev_id;
+			sscanf(line, "FAULT %d %d", &th_id, &ev_id);
+			struct thread_tr *th = run->thread_list[th_id];
+			event *ev = th->event_seq[ev_id];
+			/* ...something */
+			run->fault_node_set.insert(std::pair<int, int>(th_id, ev_id));
+		} else if(startswith(line, "FAULTERR")) {
 			int th_id, ev_id, err_code;
-			sscanf(line, "FAULT %d %d %d", &th_id, &ev_id, &err_code);
+			sscanf(line, "FAULTERR %d %d %d", &th_id, &ev_id, &err_code);
 			struct thread_tr *th = run->thread_list[th_id];
 			event *ev = th->event_seq[ev_id];
 			ev->err_code = err_code;
