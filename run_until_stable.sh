@@ -1,9 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 if [[ "$DIR" == "" ]]; then
 	echo 'Please provide a directory for runfiles' >&2
 	exit 1
 fi
+
+mkdir -p $DIR
 
 trap "echo Exited!; exit;" SIGINT SIGTERM
 
