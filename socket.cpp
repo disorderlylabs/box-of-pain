@@ -245,6 +245,8 @@ std::vector<Syscall *> connection::read(sock *s, size_t len)
 	/* TODO: this assert _should_ be enabled... but doing so causes it to fail when the clients
 	 * do their weird set-up shit. Still works after that, though. Need to figure out a way to
 	 * ignore the clients setting up. */
+	if(!(s == connside || s == accside))
+		return {};
 	// assert(s == connside || s == accside);
 	assert(s != NULL);
 	class stream *stream = s == connside ? &ba : &ab; // reverse of above

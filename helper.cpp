@@ -19,13 +19,14 @@ void register_syscall_rip(struct thread_tr *t)
 	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
 	 * anyway) and then figure out the RIP of the process (and subtract the size of the
 	 * syscall instruction) */
-	if(t->syscall_rip == 0) {
+	if(t->syscall_rip == 0 || 1) {
 		memset(&t->uregs, 0, sizeof(t->uregs));
 		if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
-			if(options.log_run)
-				fprintf(
-				  stderr, "tracee %d discovered syscall address %lx\n", t->id, t->syscall_rip);
+			//		if(options.log_run)
+			//			fprintf(
+			//			  stderr, "tracee %d discovered syscall address %lx\n", t->id,
+			//t->syscall_rip);
 		}
 	}
 }
@@ -38,6 +39,7 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 		fprintf(stderr, "failed to inject syscall into tracee %d\n", t->id);
 		abort();
 	}
+	fprintf(stderr, "injecting syscall into tracee: %d\n", t->id);
 
 	/* okay, here's the plan (it's pretty clever):
 	 *   - Save current uregs, and copy to new struct.
@@ -50,7 +52,8 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 	 *   - Deliver a signal if we got one
 	 *   - Restore regs, and return retval (after setting errno).
 	 */
-	ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs);
+	if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) == -1)
+		err(1, "ptrace-gr");
 	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
 	regs.orig_rax = num;
@@ -64,8 +67,10 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 	ptrace(PTRACE_SETREGS, t->tid, NULL, &regs);
 	int status;
 	int sig = 0;
+	int sig_count = 0;
 	while(true) {
-		ptrace(PTRACE_SINGLESTEP, t->tid, NULL, NULL);
+		if(ptrace(PTRACE_SINGLESTEP, t->tid, NULL, NULL) == -1)
+			err(1, "ptrace-step");
 		waitpid(t->tid, &status, 0);
 		if(WIFCONTINUED(status)) {
 			break;
@@ -76,6 +81,12 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 		if(WIFSTOPPED(status)) {
 			if(WSTOPSIG(status) != SIGTRAP) {
 				sig = WSTOPSIG(status);
+				if(sig_count++ == 100) {
+					for(;;)
+						;
+					/* give up */
+					break;
+				}
 				continue;
 			} else {
 				break;

@@ -20,9 +20,15 @@ void sock::serialize(FILE *f)
 {
 	fprintf(f, "SOCK %ld %d %d %d %d\n", uuid, flags, sockfd, proc->id, fromthread->id);
 	fprintf(f, "  addr ");
-	serialize_sockaddr(f, &addr, addrlen);
+	if(flags & S_ADDR)
+		serialize_sockaddr(f, &addr, addrlen);
+	else
+		fprintf(f, "???");
 	fprintf(f, "\n  peer ");
-	serialize_sockaddr(f, &peer, peerlen);
+	if(flags & S_PEER)
+		serialize_sockaddr(f, &peer, peerlen);
+	else
+		fprintf(f, "???");
 	fprintf(f, "\n");
 }
 
@@ -31,9 +37,9 @@ void connection::serialize(FILE *f)
 	fprintf(f,
 	  "CONN %d %ld %ld %d %d\n",
 	  uuid,
-	  connside->uuid,
+	  connside ? connside->uuid : -1,
 	  accside ? accside->uuid : -1,
-	  conn->uuid,
+	  conn ? conn->uuid : -1,
 	  acc ? acc->uuid : -1);
 }
 

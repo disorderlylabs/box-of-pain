@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <sys/reg.h>
 #include <sys/user.h>
+#include <vector>
 
 class event;
 class Syscall;
@@ -16,6 +16,7 @@ struct proc_tr {
 	std::vector<event *> event_seq;
 	std::vector<thread_tr *> proc_thread_list;
 	char *invoke;
+	size_t num_threads = 1;
 };
 
 struct thread_tr {
@@ -36,4 +37,3 @@ struct thread_tr {
 };
 
 struct thread_tr *find_tracee(int tid);
-

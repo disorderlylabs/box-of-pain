@@ -82,7 +82,7 @@ struct thread_tr *wait_for_syscall(void)
 	int tid;
 	while(!keyboardinterrupt) {
 		/* wait for any process */
-		if((tid = waitpid(-1, &status, 0)) == -1) {
+		if((tid = waitpid(-1, &status, __WALL)) == -1) {
 			return NULL;
 		}
 
@@ -112,8 +112,25 @@ struct thread_tr *wait_for_syscall(void)
 		}
 		if(WIFEXITED(status)) {
 			/* tracee exited. Cleanup. */
-			tracee->proc->exited = true;
-			tracee->proc->ecode = WEXITSTATUS(status);
+			if(options.log_run)
+				fprintf(stderr,
+				  "[%d : %d] thread exited; process %d has %ld threads\n",
+				  tracee->id,
+				  tracee->tid,
+				  tracee->proc->id,
+				  tracee->proc->num_threads - 1);
+			if(--tracee->proc->num_threads == 0) {
+				if(options.log_run)
+					fprintf(stderr,
+					  "[%d : %d] final thread exit in process %d\n",
+					  tracee->id,
+					  tracee->tid,
+					  tracee->proc->id);
+				tracee->proc->exited = true;
+				tracee->proc->ecode = WEXITSTATUS(status);
+			} else {
+				continue;
+			}
 			return tracee;
 		}
 		/* otherwise, tell the tracee to continue until it hits a syscall */
@@ -204,8 +221,10 @@ int do_trace()
 			/* we're seeing an ENTRY to a syscall here. This ptrace gets the syscall number. */
 			errno = 0;
 			tracee->sysnum = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * ORIG_RAX);
-			if(errno != 0)
+			if(errno != 0) {
+				warn("ptrace peek");
 				break;
+			}
 			if(options.log_syscalls) {
 				fprintf(stderr,
 				  "[%d: %d]: %s entry\n",
@@ -243,8 +262,10 @@ int do_trace()
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			errno = 0;
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RAX);
-			if(errno != 0)
+			if(errno != 0) {
+				warn("ptrace peek");
 				break;
+			}
 			if(options.log_syscalls) {
 				fprintf(stderr,
 				  "[%d: %d]: %s exit -> %ld\n",
@@ -303,6 +324,12 @@ void usage(void)
 		syscallmap_inactive[SYS_##s] = make_inactive<Sys##s>;                                      \
 	})
 
+#define SETSYS2(num, s)                                                                            \
+	({                                                                                             \
+		syscallmap[SYS_##num] = make<Sys##s>;                                                      \
+		syscallmap_inactive[SYS_##num] = make_inactive<Sys##s>;                                    \
+	})
+
 int main(int argc, char **argv)
 {
 	/* this is how you indicate you want to track syscalls. You must
@@ -312,7 +339,7 @@ int main(int argc, char **argv)
 	SETSYS(read);
 	SETSYS(write);
 	SETSYS(accept);
-	SETSYS(accept4);
+	SETSYS2(accept4, accept);
 	SETSYS(connect);
 	SETSYS(bind);
 	SETSYS(clone);
@@ -567,7 +594,7 @@ int main(int argc, char **argv)
 		}
 	} else {
 		fprintf(stderr, "Tracer recieved interrupt\n");
-		return 255;
+		// return 255;
 	}
 
 	fflush(stderr);

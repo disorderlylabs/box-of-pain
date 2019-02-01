@@ -345,19 +345,6 @@ class Sysaccept
 	}
 };
 
-class Sysaccept4 : public Sysaccept
-{
-  public:
-	Sysaccept4(int p, long n)
-	  : Sysaccept(p, n)
-	{
-	}
-	Sysaccept4()
-	  : Sysaccept()
-	{
-	}
-};
-
 class Syswrite
   : public Syscall
   , public sockop
