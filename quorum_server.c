@@ -38,7 +38,7 @@ int main()
 		read(client, buf, 128);
 		char *ip = inet_ntoa(clientaddr.sin_addr);
 		short port = clientaddr.sin_port;
-		fprintf(stderr, "Client %s:%5.5hu wrote %s\n", ip, port, buf);
+		//fprintf(stderr, "Client %s:%5.5hu wrote\n", ip, port);
 
 		if(strcmp(buf, "Hello, Server!\n") == 0) {
 			votes++;
