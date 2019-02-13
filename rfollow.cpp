@@ -28,7 +28,7 @@ bool followrun_stats()
 	for(auto run : all_followruns) {
 		fprintf(stderr, "%20s: %s\n", run->name, run->fell_off ? "fell off" : "followed");
 	}
-return 0;
+	return 0;
 }
 
 bool followrun_step(struct thread_tr *tracee)
@@ -36,7 +36,7 @@ bool followrun_step(struct thread_tr *tracee)
 	if(followruns.size() == 0) {
 		/* no more graphs! */
 		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
-		//getchar();
+		getchar();
 		return true;
 	}
 	// fprintf(stderr, "STEP\n");
@@ -70,6 +70,9 @@ bool followrun_step(struct thread_tr *tracee)
 				  other_event->sc->number,
 				  last_event->uuid,
 				  other_event->uuid);
+				fprintf(stderr,
+				  "  :: event->sc approx? %d\n",
+				  other_event->sc->approx_eq(last_event->sc, !last_event->entry ? SC_EQ_RET : 0));
 			}
 			run->fell_off = true;
 			followrun_del(run);
@@ -77,6 +80,7 @@ bool followrun_step(struct thread_tr *tracee)
 		}
 		/* this is still a valid graph */
 		if(other_event->fault_event) {
+			fprintf(stderr, ":: %d %d\n", other_event->uuid, last_event_idx);
 			/* inject a fault */
 			last_event->sc->fault();
 			// last_event->err_code = other_event->err_code;

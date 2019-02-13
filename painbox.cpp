@@ -28,7 +28,7 @@
 
 /* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
 
-struct options options = { .wait = false, .dump = false, .step = false, .log_syscalls = false };
+struct options options = {};
 
 enum opmode {
 	OPMODE_TRACE,
@@ -368,7 +368,7 @@ int main(int argc, char **argv)
 				}
 				if(options.log_run)
 					fprintf(stderr, "loading runfile %s\n", optarg);
-				run = new struct run();
+				run = new class run();
 				run->name = strdup(optarg);
 				run_load(run, rf);
 				fclose(rf);

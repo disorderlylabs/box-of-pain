@@ -244,7 +244,11 @@ void run_load(class run *run, FILE *f)
 			char addr[64];
 			struct sockaddr_in saaddr, sapeer;
 			getline(&line, &ls, f);
-			sscanf(line, "  addr sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			int r = sscanf(line, "  addr sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			if(r != 3 && (flags & S_ADDR)) {
+				fprintf(stderr, "SYNTAX ERROR runfile: %s\n", line);
+				exit(1);
+			}
 			s->addrlen = sz;
 			inet_pton(AF_INET, addr, &saaddr.sin_addr);
 			saaddr.sin_port = port;
@@ -252,7 +256,12 @@ void run_load(class run *run, FILE *f)
 			s->addr.sa_family = AF_INET;
 
 			getline(&line, &ls, f);
-			sscanf(line, "  peer sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			r = sscanf(line, "  peer sockaddr_in (%d)%d:%[0-9.]s\n", &sz, &port, addr);
+			if(r != 3 && (flags & S_PEER)) {
+				fprintf(stderr, "SYNTAX ERROR runfile: %s\n", line);
+				exit(1);
+			}
+
 			s->peerlen = sz;
 			inet_pton(AF_INET, addr, &sapeer.sin_addr);
 			sapeer.sin_port = port;

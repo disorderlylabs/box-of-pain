@@ -44,7 +44,7 @@ class event
 {
   public:
 	Syscall *sc;
-	bool entry, pending, fault_event;
+	bool entry, pending, fault_event = false;
 	int trid, uuid;
 	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;
@@ -176,11 +176,12 @@ class sockop
 	virtual bool approx_eq(Syscall *_o, int flags __unused)
 	{
 		sockop *other = dynamic_cast<sockop *>(_o);
-		if(sock != NULL && other->get_socket() != NULL)
+		if(sock != NULL && other->get_socket() != NULL) {
 			return sock->approx_eq(
 			  other->get_socket(), flags & SC_EQ_ADDR_EPH, flags & SC_EQ_PEER_EPH);
-		else
+		} else {
 			return sock == other->get_socket();
+		}
 	}
 
 	class sock *get_socket()
