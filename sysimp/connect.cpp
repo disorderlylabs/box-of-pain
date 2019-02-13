@@ -23,4 +23,5 @@ void Sysconnect::finish()
 	sock->conn =
 	  conn_lookup(&current_run, &sock->addr, sock->addrlen, &sock->peer, sock->peerlen, true);
 	sock->conn->set_connside(this, sock);
+	Syscall::finish();
 }

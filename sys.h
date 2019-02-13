@@ -142,6 +142,11 @@ class Syscall
 	{
 	}
 
+	void set_param(int param, long val)
+	{
+		set_syscall_param(fromtid, param, val);
+	}
+
 	void set_return_value(int val)
 	{
 		set_syscall_param(fromtid, RAX, val);
@@ -151,8 +156,11 @@ class Syscall
 	{
 		if(ret_success) {
 			set_syscall_param(fromtid, RAX, 0);
+		} else if(ret_err) {
+			set_syscall_param(fromtid, RAX, ret_err);
 		}
 	}
+
 	virtual void start()
 	{
 	}
@@ -194,7 +202,7 @@ class sockop
 		fprintf(f, "sockop %ld\n", sock ? sock->uuid : -1);
 		// sock->serialize(f);
 	}
-	virtual void run_load(struct run *run, FILE *f);
+	virtual void run_load(class run *run, FILE *f);
 };
 
 class Sysclone : public Syscall
@@ -317,6 +325,8 @@ class Sysconnect
 	virtual void fault()
 	{
 		fprintf(stderr, "INJ CONN\n");
+		set_param(param_map[0], -1);
+		// set_return_value(-ECONNREFUSED);
 	}
 };
 
