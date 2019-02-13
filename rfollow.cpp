@@ -75,11 +75,12 @@ bool followrun_step(struct thread_tr *tracee)
 			return followrun_step(tracee);
 		}
 		/* this is still a valid graph */
-		if(other_event->err_code) {
+		if(other_event->fault_event) {
 			/* inject a fault */
-			last_event->err_code = other_event->err_code;
-			last_event->sc->ret_err = other_event->err_code;
-			last_event->sc->set_return_value(other_event->err_code);
+			last_event->sc->fault();
+			// last_event->err_code = other_event->err_code;
+			// last_event->sc->ret_err = other_event->err_code;
+			// last_event->sc->set_return_value(other_event->err_code);
 		}
 	}
 	return false;

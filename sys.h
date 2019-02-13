@@ -44,8 +44,8 @@ class event
 {
   public:
 	Syscall *sc;
-	bool entry, pending;
-	int err_code;
+	bool entry, pending, fault_event;
+	// int err_code;
 	int trid, uuid;
 	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;
@@ -120,6 +120,11 @@ class Syscall
 			if(other->params[i] != this->params[i])
 				return false;
 		return flags & SC_EQ_RET ? other->retval == this->retval : true;
+	}
+
+	virtual void fault(void)
+	{
+		fprintf(stderr, "--- tried to inject fault in a syscall without fault injection ---\n");
 	}
 
 	Syscall(int ftid, long num)

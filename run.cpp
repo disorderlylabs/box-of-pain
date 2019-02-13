@@ -277,14 +277,17 @@ void run_load(class run *run, FILE *f)
 			sscanf(line, "FAULT %d %d", &th_id, &ev_id);
 			struct thread_tr *th = run->thread_list[th_id];
 			event *ev = th->event_seq[ev_id];
+			ev->fault_event = true;
 			/* ...something */
 			run->fault_node_set.insert(std::pair<int, int>(th_id, ev_id));
-		} else if(startswith(line, "FAULTERR")) {
-			int th_id, ev_id, err_code;
-			sscanf(line, "FAULTERR %d %d %d", &th_id, &ev_id, &err_code);
-			struct thread_tr *th = run->thread_list[th_id];
-			event *ev = th->event_seq[ev_id];
-			ev->err_code = err_code;
+			/*} else if(startswith(line, "FAULTERR")) {
+			    int th_id, ev_id, err_code;
+			    sscanf(line, "FAULTERR %d %d %d", &th_id, &ev_id, &err_code);
+			    struct thread_tr *th = run->thread_list[th_id];
+			    event *ev = th->event_seq[ev_id];
+			    ev->err_code = err_code;
+			    ev->fault_event = true;
+			    run->fault_node_set.insert(std::pair<int, int>(th_id, ev_id));*/
 		} else {
 			fprintf(stderr, "Cannot parse line: %s", line);
 			exit(1);
