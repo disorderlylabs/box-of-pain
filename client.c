@@ -42,7 +42,7 @@ again:
 	memset(buf, 0, 128);
 	read(sockfd, buf, 20);
 
-	fprintf(stderr, "Reply: %s\nLooking for second message...\n", buf);
+	fprintf(stderr, "Reply: \nLooking for second message...\n");
 
 	if(read(sockfd, buf, 128) <= 0) {
 		fprintf(stderr, "Second message not found!\n");

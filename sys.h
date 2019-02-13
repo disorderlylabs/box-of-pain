@@ -45,7 +45,6 @@ class event
   public:
 	Syscall *sc;
 	bool entry, pending, fault_event;
-	// int err_code;
 	int trid, uuid;
 	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;

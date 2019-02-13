@@ -28,6 +28,7 @@ bool followrun_stats()
 	for(auto run : all_followruns) {
 		fprintf(stderr, "%20s: %s\n", run->name, run->fell_off ? "fell off" : "followed");
 	}
+return 0;
 }
 
 bool followrun_step(struct thread_tr *tracee)
@@ -35,7 +36,7 @@ bool followrun_step(struct thread_tr *tracee)
 	if(followruns.size() == 0) {
 		/* no more graphs! */
 		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
-		getchar();
+		//getchar();
 		return true;
 	}
 	// fprintf(stderr, "STEP\n");
