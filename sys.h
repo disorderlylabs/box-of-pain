@@ -313,6 +313,11 @@ class Sysconnect
 		}
 		return true;
 	}
+
+	virtual void fault()
+	{
+		fprintf(stderr, "INJ CONN\n");
+	}
 };
 
 class Sysaccept

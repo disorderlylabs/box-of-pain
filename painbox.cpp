@@ -134,9 +134,22 @@ struct thread_tr *wait_for_syscall(void)
 			return tracee;
 		}
 		/* otherwise, tell the tracee to continue until it hits a syscall */
-		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
+		if(!tracee->frozen)
+			ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 	}
 	return NULL;
+}
+
+void freeze_thread(struct thread_tr *tracee)
+{
+	tracee->frozen = true;
+}
+
+void unfreeze_thread(struct thread_tr *tracee)
+{
+	tracee->frozen = false;
+	/* if frozen, we need to signal the process to continue */
+	ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 }
 
 void process_event(bool traced, struct thread_tr *tracee)

@@ -26,6 +26,7 @@ struct thread_tr {
 	int status;
 	long sysnum;
 	bool active;
+	bool frozen = false;
 	Syscall *syscall;
 	struct proc_tr *proc;
 	std::vector<event *> event_seq;
