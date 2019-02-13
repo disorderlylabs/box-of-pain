@@ -4,16 +4,16 @@
 void Syssendto::start()
 {
 	int sockfd;
-	void *buffer;
-	size_t length;
-	int flags;
+	// void *buffer;
+	// size_t length;
+	// int flags;
 	struct sockaddr *dest;
 	socklen_t dest_len;
 
 	sockfd = params[0];
-	buffer = (void *)params[1];
-	length = params[2];
-	flags = params[3];
+	// buffer = (void *)params[1];
+	// length = params[2];
+	// flags = params[3];
 	GETOBJ(frompid, params[4], &dest);
 	dest_len = (socklen_t)params[5];
 

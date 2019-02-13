@@ -9,6 +9,8 @@
 
 int main(int argc, char **argv)
 {
+	(void)argc;
+	(void)argv;
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent *server;
 

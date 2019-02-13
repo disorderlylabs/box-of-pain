@@ -6,18 +6,18 @@
 void Sysrecvfrom::start()
 {
 	int sockfd;
-	void *buffer;
-	size_t length;
-	int flags;
+	// void *buffer;
+	// size_t length;
+	// int flags;
 	struct sockaddr *addr;
-	socklen_t *addrlen;
+	// socklen_t *addrlen;
 
 	sockfd = params[0];
-	buffer = (void *)params[1];
-	length = params[2];
-	flags = params[3];
+	// buffer = (void *)params[1];
+	// length = params[2];
+	// flags = params[3];
 	addr = (struct sockaddr *)params[4];
-	addrlen = (socklen_t *)params[5];
+	// addrlen = (socklen_t *)params[5];
 
 	if(addr == NULL) {
 		sock = sock_lookup(&current_run, frompid, sockfd);
