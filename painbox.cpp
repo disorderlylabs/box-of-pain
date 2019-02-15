@@ -106,9 +106,12 @@ struct thread_tr *wait_for_syscall(void)
 		}
 
 		tracee->status = status;
+		int signal = 0;
 		if(WIFSTOPPED(status) && WSTOPSIG(status) & 0x80) {
 			/* got a trace event (syscall entry or exit) */
 			return tracee;
+		} else if(WIFSTOPPED(status) && WSTOPSIG(status)) {
+			signal = WSTOPSIG(status);
 		}
 		if(WIFEXITED(status)) {
 			/* tracee exited. Cleanup. */
@@ -135,7 +138,7 @@ struct thread_tr *wait_for_syscall(void)
 		}
 		/* otherwise, tell the tracee to continue until it hits a syscall */
 		if(!tracee->frozen)
-			ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
+			ptrace(PTRACE_SYSCALL, tracee->tid, 0, (long)signal);
 	}
 	return NULL;
 }

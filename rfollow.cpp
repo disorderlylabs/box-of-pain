@@ -36,7 +36,6 @@ bool followrun_step(struct thread_tr *tracee)
 	if(followruns.size() == 0) {
 		/* no more graphs! */
 		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
-		getchar();
 		return true;
 	}
 	// fprintf(stderr, "STEP\n");
