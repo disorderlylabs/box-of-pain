@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <functional>
 #include <netinet/in.h>
 #include <signal.h>
@@ -484,8 +485,24 @@ int main(int argc, char **argv)
 				args[0] = prog;
 				char *tmp;
 				int ac = 1;
+				int outfd = -1, infd = -1;
 				while((tmp = strtok(NULL, ","))) {
 					args = (char **)realloc(args, (ac + 2) * sizeof(char *));
+					if(!strcmp(tmp, ">")) {
+						tmp = strtok(NULL, ",");
+						if(!tmp) {
+							fprintf(stderr, "invalid syntax: need '> filename'.");
+							exit(1);
+						}
+						outfd = open(tmp, O_WRONLY);
+					} else if(!strcmp(tmp, "<")) {
+						tmp = strtok(NULL, ",");
+						if(!tmp) {
+							fprintf(stderr, "invalid syntax: need '> filename'.");
+							exit(1);
+						}
+						infd = open(tmp, O_RDONLY);
+					}
 					args[ac] = strdup(tmp);
 					args[ac + 1] = NULL;
 					ac++;
@@ -496,12 +513,26 @@ int main(int argc, char **argv)
 					//	perror("PTRACE_TRACEME");
 					//}
 					/* wait for the tracer to get us going later (in do_trace) */
+					if(outfd != -1) {
+						close(1);
+						dup(outfd);
+						close(outfd);
+					}
+					if(infd != -1) {
+						close(0);
+						dup(infd);
+						close(infd);
+					}
 					raise(SIGSTOP);
 					if(execvp(prog, args) == -1) {
 						fprintf(stderr, "failed to execute %s\n", prog);
 					}
 					exit(255);
 				}
+				if(outfd != -1)
+					close(outfd);
+				if(infd != -1)
+					close(infd);
 				tr->proc->pid = pid;
 				tr->tid = pid;
 				if(options.log_run)
