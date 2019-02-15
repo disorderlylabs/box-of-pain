@@ -322,9 +322,23 @@ int do_trace()
 		process_event(traced, tracee);
 
 		/* ...and continue */
-		ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
+		if(!tracee->frozen)
+			ptrace(PTRACE_SYSCALL, tracee->tid, 0, 0);
 	}
 	return 0;
+}
+
+void alarm_handler(int s)
+{
+	(void)s;
+	for(auto tr : current_run.thread_list) {
+		if(tr->delay >= 0) {
+			if(tr->delay-- == 0) {
+				unfreeze_thread(tr);
+			}
+			alarm(1);
+		}
+	}
 }
 
 void usage(void)
@@ -487,7 +501,6 @@ int main(int argc, char **argv)
 				int ac = 1;
 				int outfd = -1, infd = -1;
 				while((tmp = strtok(NULL, ","))) {
-					args = (char **)realloc(args, (ac + 2) * sizeof(char *));
 					if(!strcmp(tmp, ">")) {
 						tmp = strtok(NULL, ",");
 						if(!tmp) {
@@ -501,11 +514,23 @@ int main(int argc, char **argv)
 							fprintf(stderr, "invalid syntax: need '> filename'.");
 							exit(1);
 						}
-						infd = open(tmp, O_RDONLY);
+						infd = open(tmp, O_RDONLY | O_NONBLOCK);
+						const int flags = fcntl(infd, F_GETFL, 0);
+						fcntl(infd, F_SETFL, flags & ~O_NONBLOCK);
+					} else if(tmp[0] == '!') {
+						int delay = atoi(tmp + 1);
+						fprintf(
+						  stderr, "delaying execution of process %s by %d seconds\n", prog, delay);
+						signal(SIGALRM, alarm_handler);
+						alarm(1);
+						tr->delay = delay;
+						freeze_thread(tr);
+					} else {
+						args = (char **)realloc(args, (ac + 2) * sizeof(char *));
+						args[ac] = strdup(tmp);
+						args[ac + 1] = NULL;
+						ac++;
 					}
-					args[ac] = strdup(tmp);
-					args[ac + 1] = NULL;
-					ac++;
 				}
 				int pid = fork();
 				if(pid == 0) {
