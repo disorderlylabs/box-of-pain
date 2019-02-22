@@ -33,10 +33,10 @@ static inline bool sa_eq(const struct sockaddr *a,
 		return false;
 
 	if(!ignore_port) {
-		// fprintf(stderr, "C %d %d\n", is_ephemeral(ain->sin_port), is_ephemeral(bin->sin_port));
+		//	fprintf(stderr, "C %d %d\n", is_ephemeral(ain->sin_port), is_ephemeral(bin->sin_port));
 		if(is_ephemeral(ain->sin_port) != is_ephemeral(bin->sin_port))
 			return false;
-		// fprintf(stderr, "D %d %d\n", ntohs(ain->sin_port), ntohs(bin->sin_port));
+		//	fprintf(stderr, "D %d %d\n", ntohs(ain->sin_port), ntohs(bin->sin_port));
 		if(!is_ephemeral(ain->sin_port) && !is_ephemeral(bin->sin_port)
 		   && bin->sin_port != ain->sin_port) {
 			return false;

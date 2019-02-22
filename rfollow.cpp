@@ -36,6 +36,7 @@ bool followrun_step(struct thread_tr *tracee)
 	if(followruns.size() == 0) {
 		/* no more graphs! */
 		fprintf(stderr, "=== FELL OFF ALL GRAPHS ===\n");
+		// getchar();
 		return true;
 	}
 	// fprintf(stderr, "STEP\n");
@@ -49,12 +50,22 @@ bool followrun_step(struct thread_tr *tracee)
 	// syscall_names[last_event->sc->number],
 	// last_event->entry);
 	for(auto run : followruns) {
+		if((size_t)tracee->id >= run->thread_list.size()) {
+			run->fell_off = true;
+			followrun_del(run);
+			return followrun_step(tracee);
+		}
 		struct thread_tr *followed_thread = run->thread_list[tracee->id];
+		if((size_t)last_event_idx >= followed_thread->event_seq.size()) {
+			run->fell_off = true;
+			followrun_del(run);
+			return followrun_step(tracee);
+		}
 		event *other_event = followed_thread->event_seq[last_event_idx];
 
 		if(other_event->entry != last_event->entry || other_event->uuid != last_event->uuid
 		   || other_event->sc->number != last_event->sc->number
-		   || !other_event->sc->approx_eq(last_event->sc, !last_event->entry ? SC_EQ_RET : 0)) {
+		   || !other_event->sc->approx_eq(last_event->sc, !last_event->entry ? 0 : 0)) {
 			if(options.log_follow) {
 				fprintf(stderr, "== Fell off %s ==\n", run->name);
 				fprintf(stderr,

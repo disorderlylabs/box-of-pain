@@ -333,10 +333,12 @@ void alarm_handler(int s)
 	(void)s;
 	for(auto tr : current_run.thread_list) {
 		if(tr->delay >= 0) {
-			if(tr->delay-- == 0) {
+			tr->delay -= 1000;
+			if(tr->delay < 0) {
+				fprintf(stderr, "starting delayed execution of %s\n", tr->proc->invoke);
 				unfreeze_thread(tr);
 			}
-			alarm(1);
+			ualarm(1000, 0);
 		}
 	}
 }
@@ -518,12 +520,19 @@ int main(int argc, char **argv)
 						const int flags = fcntl(infd, F_GETFL, 0);
 						fcntl(infd, F_SETFL, flags & ~O_NONBLOCK);
 					} else if(tmp[0] == '!') {
-						int delay = atoi(tmp + 1);
-						fprintf(
-						  stderr, "delaying execution of process %s by %d seconds\n", prog, delay);
+						float delay;
+						if(sscanf(tmp + 1, "%f", &delay) != 1) {
+							fprintf(stderr, "syntax err: need !%%f\n");
+							exit(1);
+						}
+						fprintf(stderr,
+						  "delaying execution of process %s by %d usec (%f)\n",
+						  prog,
+						  (int)(delay * 1000000),
+						  delay);
 						signal(SIGALRM, alarm_handler);
-						alarm(1);
-						tr->delay = delay;
+						alarm((int)delay);
+						tr->delay = delay; // * 1000000;
 						freeze_thread(tr);
 					} else {
 						args = (char **)realloc(args, (ac + 2) * sizeof(char *));

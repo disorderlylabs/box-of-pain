@@ -109,9 +109,6 @@ class Syscall
 
 	virtual bool approx_eq(Syscall *other, int flags)
 	{
-		fprintf(stderr, ":: %ld %ld\n", other->params[0], this->params[0]);
-		fprintf(stderr, ":: %ld %ld\n", other->params[1], this->params[1]);
-		fprintf(stderr, ":: %ld %ld\n", other->params[2], this->params[2]);
 		int nr_args = syscall_table[this->number].nr_args;
 		if(other->number != this->number)
 			return false;
@@ -218,6 +215,10 @@ class Sysclone : public Syscall
 	}
 	void start();
 	void finish();
+	bool approx_eq(Syscall *o, int flags)
+	{
+		return true; /* TODO */
+	}
 };
 
 class Sysclose
@@ -391,6 +392,7 @@ class Syswrite
 	}
 	bool approx_eq(Syscall *o, int flags)
 	{
+		// fprintf(stderr, "write %ld %ld\n", this->retval, o->retval);
 		return sockop::approx_eq(o, flags)
 		       && ((flags & SC_EQ_RET) ? o->retval == this->retval : true);
 	}
