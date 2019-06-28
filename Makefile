@@ -1,4 +1,4 @@
-CXXFLAGS=-Wall -Wextra -O0 -g -I. -include defl.h -std=gnu++11
+CXXFLAGS=-Wall -Wextra -O3 -g -I. -include defl.h -std=gnu++11
 CXX=g++
 
 CFLAGS=-std=gnu11 -Wall -Wextra -Og -g

@@ -19,7 +19,7 @@ void register_syscall_rip(struct thread_tr *t)
 	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
 	 * anyway) and then figure out the RIP of the process (and subtract the size of the
 	 * syscall instruction) */
-	if(t->syscall_rip == 0 || 1) {
+	if(t->syscall_rip == 0) {
 		memset(&t->uregs, 0, sizeof(t->uregs));
 		if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1) {
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;

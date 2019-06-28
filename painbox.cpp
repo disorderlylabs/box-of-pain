@@ -73,6 +73,51 @@ void keyboardinterrupthandler(int signum __attribute__((unused)))
 	keyboardinterrupt = true;
 }
 
+void create_thread_from_clone(struct thread_tr *thread, int newtid, bool new_process)
+{
+	// Create a tracee object for the new thread
+	struct thread_tr *tr = new thread_tr();
+	tr->sysnum = -1;     // we're not in a syscall to start.
+	tr->syscall_rip = 0; // NOTE: This differs from the regular initialization
+	tr->shared_page = 0;
+	tr->sp_mark = 0;
+	tr->syscall = NULL;
+	tr->active = true;
+	tr->id = current_run.thread_list.size();
+	tr->tid = newtid;
+	current_run.traces[tr->tid] = tr;
+	current_run.thread_list.push_back(tr);
+
+	if(new_process) {
+		struct proc_tr *ptr = new proc_tr();
+		ptr->id = current_run.proc_list.size();
+		tr->syscall_rip = -1;
+		ptr->exited = false;
+		tr->proc = ptr;
+		ptr->invoke = thread->proc->invoke;
+		ptr->proc_thread_list.push_back(tr);
+		current_run.proc_list.push_back(ptr);
+	} else {
+		tr->proc = thread->proc;
+		thread->proc->proc_thread_list.push_back(tr);
+		thread->proc->num_threads++;
+	}
+
+	if(options.log_run)
+		fprintf(stderr,
+		  "[%d : %d]: clone created new %s with tid %d, id %d :: proc %d has %ld "
+		  "threads\n",
+		  thread->id,
+		  thread->tid,
+		  new_process ? "process" : "thread",
+		  newtid,
+		  tr->id,
+		  tr->proc->id,
+		  tr->proc->num_threads);
+
+
+}
+
 /* wait for a tracee to be ready to report a syscall. There is no
  * explicit order guaranteed by this. It could be the same process
  * twice in a row. We'd probably _like_ to see round-robin, but that
@@ -90,20 +135,22 @@ struct thread_tr *wait_for_syscall(void)
 		struct thread_tr *tracee = find_tracee(tid);
 		if(tracee == NULL) {
 			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
+			ptrace(PTRACE_SYSCALL, tid, 0, 0);
 			continue;
-			/*
-			//If waitpid returns a process not in the map
-			if(status>>8 == (SIGTRAP | (PTRACE_EVENT_STOP<<8))){
-			//If it's a new thread, keep going, we'll get to it later, when we find the clone()
-			fprintf(stderr, "waitpid returned new thread %d\n", tid);
-			continue;
-			}else {
-			//Otherwise, something went wrong
-			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
-			continue;
-			//exit(1);
+			exit(1);
+		}
+		if((((status >> 16) & 0xffff) == PTRACE_EVENT_CLONE)
+				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
+				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
+			int newtid;
+			long r = ptrace(PTRACE_GETEVENTMSG, tid, 0, &newtid);
+			if(r == -1) {
+				perror("trace geteventmsg");
 			}
-			*/
+			create_thread_from_clone(tracee, newtid, ((status >> 16) & 0xffff) != PTRACE_EVENT_CLONE);
+			if(ptrace(PTRACE_SYSCALL, newtid, 0, 0) == -1 && errno != ESRCH) {
+				perror("ptrace syscall");
+			}	
 		}
 
 		tracee->status = status;
@@ -138,8 +185,9 @@ struct thread_tr *wait_for_syscall(void)
 			return tracee;
 		}
 		/* otherwise, tell the tracee to continue until it hits a syscall */
-		if(!tracee->frozen)
+		if(!tracee->frozen) {
 			ptrace(PTRACE_SYSCALL, tracee->tid, 0, (long)signal);
+		}
 	}
 	return NULL;
 }
@@ -160,6 +208,8 @@ void process_event(bool traced, struct thread_tr *tracee)
 {
 	/* depending on the opmode, we're either following along or tracing a new
 	 * graph. */
+
+	if(!traced) return;
 
 	if(current_mode == OPMODE_FOLLOW) {
 		bool felloff = followrun_step(tracee);
@@ -199,7 +249,7 @@ int do_trace()
 
 		// Set option to make tracing calls easier
 		// Enable tracing on child threads
-		if(ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE)
+		if(ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE | PTRACE_O_EXITKILL | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK)
 		   != 0) {
 			perror("ptrace SETOPTIONS");
 		}
@@ -228,7 +278,7 @@ int do_trace()
 				break;
 			continue;
 		}
-
+#if 1
 		/* this call will ensure that we always know where a syscall instruction is, in case
 		 * we need to inject a syscall. */
 		register_syscall_rip(tracee);
@@ -278,6 +328,41 @@ int do_trace()
 		} else {
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			errno = 0;
+
+#if 0
+			struct rusage {
+               struct timeval ru_utime; /* user CPU time used */
+               struct timeval ru_stime; /* system CPU time used */
+               long   ru_maxrss;        /* maximum resident set size */
+               long   ru_ixrss;         /* integral shared memory size */
+               long   ru_idrss;         /* integral unshared data size */
+               long   ru_isrss;         /* integral unshared stack size */
+               long   ru_minflt;        /* page reclaims (soft page faults) */
+               long   ru_majflt;        /* page faults (hard page faults) */
+               long   ru_nswap;         /* swaps */
+               long   ru_inblock;       /* block input operations */
+               long   ru_oublock;       /* block output operations */
+               long   ru_msgsnd;        /* IPC messages sent */
+               long   ru_msgrcv;        /* IPC messages received */
+               long   ru_nsignals;      /* signals received */
+               long   ru_nvcsw;         /* voluntary context switches */
+               long   ru_nivcsw;        /* involuntary context switches */
+           };
+
+			long sn = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * ORIG_RAX);
+			if(sn == 98) {
+				struct rusage r;
+				long a = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RSI);
+				tracee_copydata(tracee->tid, a, (char *)&r, sizeof(r));
+				printf(":: {%ld %ld} {%ld %ld}\n",
+						r.ru_utime.tv_sec,
+						r.ru_utime.tv_usec,
+						r.ru_stime.tv_sec,
+						r.ru_stime.tv_usec);
+			}
+
+#endif
+
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RAX);
 			if(errno != 0) {
 				warn("ptrace peek");
@@ -320,6 +405,7 @@ int do_trace()
 		}
 
 		process_event(traced, tracee);
+#endif
 
 		/* ...and continue */
 		if(!tracee->frozen)
