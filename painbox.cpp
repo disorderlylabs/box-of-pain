@@ -122,35 +122,52 @@ void create_thread_from_clone(struct thread_tr *thread, int newtid, bool new_pro
  * explicit order guaranteed by this. It could be the same process
  * twice in a row. We'd probably _like_ to see round-robin, but that
  * may not be feasible (processes may block for long periods of time). */
+#include <list>
+static std::list<std::pair<int, int>> wait_queue;
 struct thread_tr *wait_for_syscall(void)
 {
 	int status;
-	int tid;
+	int tid = -1;
 	while(!keyboardinterrupt) {
-		/* wait for any process */
-		if((tid = waitpid(-1, &status, __WALL)) == -1) {
-			return NULL;
-		}
+		/* Find a thread to process. First, check the wait queue to see if we have any threads that
+		 * we waited on but didn't yet 'know about'. */
+		struct thread_tr *tracee = NULL;
+		for(auto it = wait_queue.begin(); it != wait_queue.end(); it++) {
+			int t = (*it).first;
+			int s = (*it).second;
+			tracee = find_tracee(t);
+			if(tracee) {
+				fprintf(stderr, "removing thread %d from wait_queue (status = %x).\n", t, s);
+				wait_queue.erase(it);
+				status = s;
+				break;
+			}
 
-		struct thread_tr *tracee = find_tracee(tid);
+		}
 		if(tracee == NULL) {
-			fprintf(stderr, "waitpid returned untraced process/thread %d!\n", tid);
-			ptrace(PTRACE_SYSCALL, tid, 0, 0);
+			/* we didn't find any that we were waiting on that we _could_ service yet. Actually wait. */
+			if((tid = waitpid(-1, &status, __WALL)) == -1) {
+				return NULL;
+			}
+
+			tracee = find_tracee(tid);
+		}
+		if(tracee == NULL) {
+			fprintf(stderr, "waitpid returned untraced process/thread %d (status=%x). Enqueuing for later.\n", tid, status);
+			assert(tid != -1);
+			wait_queue.push_back(std::make_pair(tid, status));
 			continue;
-			exit(1);
 		}
 		if((((status >> 16) & 0xffff) == PTRACE_EVENT_CLONE)
 				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
 				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
 			int newtid;
 			long r = ptrace(PTRACE_GETEVENTMSG, tid, 0, &newtid);
+			assert(newtid != tid);
 			if(r == -1) {
 				perror("trace geteventmsg");
 			}
 			create_thread_from_clone(tracee, newtid, ((status >> 16) & 0xffff) != PTRACE_EVENT_CLONE);
-			if(ptrace(PTRACE_SYSCALL, newtid, 0, 0) == -1 && errno != ESRCH) {
-				perror("ptrace syscall");
-			}	
 		}
 
 		tracee->status = status;
@@ -329,42 +346,8 @@ int do_trace()
 			/* we're seeing an EXIT from a syscall. This ptrace gets the return value */
 			errno = 0;
 
-#if 0
-			struct rusage {
-               struct timeval ru_utime; /* user CPU time used */
-               struct timeval ru_stime; /* system CPU time used */
-               long   ru_maxrss;        /* maximum resident set size */
-               long   ru_ixrss;         /* integral shared memory size */
-               long   ru_idrss;         /* integral unshared data size */
-               long   ru_isrss;         /* integral unshared stack size */
-               long   ru_minflt;        /* page reclaims (soft page faults) */
-               long   ru_majflt;        /* page faults (hard page faults) */
-               long   ru_nswap;         /* swaps */
-               long   ru_inblock;       /* block input operations */
-               long   ru_oublock;       /* block output operations */
-               long   ru_msgsnd;        /* IPC messages sent */
-               long   ru_msgrcv;        /* IPC messages received */
-               long   ru_nsignals;      /* signals received */
-               long   ru_nvcsw;         /* voluntary context switches */
-               long   ru_nivcsw;        /* involuntary context switches */
-           };
-
-			long sn = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * ORIG_RAX);
-			if(sn == 98) {
-				struct rusage r;
-				long a = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RSI);
-				tracee_copydata(tracee->tid, a, (char *)&r, sizeof(r));
-				printf(":: {%ld %ld} {%ld %ld}\n",
-						r.ru_utime.tv_sec,
-						r.ru_utime.tv_usec,
-						r.ru_stime.tv_sec,
-						r.ru_stime.tv_usec);
-			}
-
-#endif
-
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RAX);
-			if(errno != 0) {
+						if(errno != 0) {
 				warn("ptrace peek");
 				break;
 			}
@@ -376,6 +359,11 @@ int do_trace()
 				  syscall_table[tracee->sysnum].name,
 				  retval);
 			}
+if(retval == -38) {
+				fprintf(stderr, "ERR: ENOSYS\n");
+				abort();
+			}
+
 			if(tracee->syscall) {
 				traced = true;
 				/* this syscall was tracked. Finish it up */
