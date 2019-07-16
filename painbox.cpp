@@ -126,6 +126,7 @@ void create_thread_from_clone(struct thread_tr *thread, int newtid, bool new_pro
 static std::list<std::pair<int, int>> wait_queue;
 struct thread_tr *wait_for_syscall(void)
 {
+	static size_t rr_c = 0;
 	int status;
 	int tid = -1;
 	while(!keyboardinterrupt) {
@@ -145,9 +146,20 @@ struct thread_tr *wait_for_syscall(void)
 
 		}
 		if(tracee == NULL) {
-			/* we didn't find any that we were waiting on that we _could_ service yet. Actually wait. */
-			if((tid = waitpid(-1, &status, __WALL)) == -1) {
-				return NULL;
+			/* we didn't find any that we were waiting on that we _could_ service yet. Try all threads in a semi-fair manner. */
+			for(size_t i=0;i<current_run.thread_list.size();i++) {
+				size_t ti = (rr_c+i) % current_run.thread_list.size();
+				struct thread_tr *t = current_run.thread_list[ti];
+				tid = waitpid(t->tid, &status, __WALL | WNOHANG);
+				if(tid == t->tid) break;
+				tid = -1;
+			}
+			rr_c++;
+			if(tid == -1) {
+				/* no threads found yet. wait and actually block this time */
+				if((tid = waitpid(-1, &status, __WALL)) == -1) {
+					return NULL;
+				}
 			}
 
 			tracee = find_tracee(tid);
