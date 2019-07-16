@@ -147,12 +147,14 @@ struct thread_tr *wait_for_syscall(void)
 		}
 		if(tracee == NULL) {
 			/* we didn't find any that we were waiting on that we _could_ service yet. Try all threads in a semi-fair manner. */
+			/* TODO: determine a better method */
 			for(size_t i=0;i<current_run.thread_list.size();i++) {
 				size_t ti = (rr_c+i) % current_run.thread_list.size();
 				struct thread_tr *t = current_run.thread_list[ti];
 				tid = waitpid(t->tid, &status, __WALL | WNOHANG);
 				if(tid == t->tid) break;
 				tid = -1;
+				break;
 			}
 			rr_c++;
 			if(tid == -1) {
