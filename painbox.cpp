@@ -802,5 +802,13 @@ int main(int argc, char **argv)
 	if(current_mode == OPMODE_TRACE && options.dump) {
 		dump(current_run.name, &current_run);
 	}
-	return current_mode == OPMODE_FOLLOW ? 0 : 1;
+
+	bool clean = true;
+	for(auto p : current_run.proc_list) {
+		if(p->ecode) {
+			clean = false;
+		}
+	}
+
+	return (current_mode == OPMODE_FOLLOW ? 0 : 1) | (clean ? 0 : 2);
 }
