@@ -175,7 +175,7 @@ struct thread_tr *wait_for_syscall(void)
 		if((((status >> 16) & 0xffff) == PTRACE_EVENT_CLONE)
 				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
 				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
-			int newtid;
+			unsigned long newtid;
 			long r = ptrace(PTRACE_GETEVENTMSG, tid, 0, &newtid);
 			assert(newtid != tid);
 			if(r == -1) {

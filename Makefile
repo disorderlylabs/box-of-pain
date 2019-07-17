@@ -4,6 +4,11 @@ CXX=g++
 CFLAGS=-std=gnu11 -Wall -Wextra -Og -g
 CC=gcc
 
+#CXXFLAGS+=-fsanitize=address -fsanitize=undefined
+#LIBS+=-lasan -lubsan
+
+LIBS=-lstdc++
+
 SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp $(addprefix sysimp/,read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp) scnames.cpp
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
@@ -14,7 +19,7 @@ EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
 all: painbox $(EXAMPLES)
 
 painbox: $(OBJECTS)
-	$(CXX) -o painbox $(OBJECTS) -lstdc++
+	$(CXX) -o painbox $(OBJECTS) $(LIBS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
