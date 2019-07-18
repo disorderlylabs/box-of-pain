@@ -175,6 +175,7 @@ struct thread_tr *wait_for_syscall(void)
 			wait_queue.push_back(std::make_pair(tid, status));
 			continue;
 		}
+		// printf(":: %d %d: %x\n", tid, tracee->id, status);
 		if((((status >> 16) & 0xffff) == PTRACE_EVENT_CLONE)
 		   || (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
 		   || (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
@@ -196,13 +197,16 @@ struct thread_tr *wait_for_syscall(void)
 		} else if(WIFSTOPPED(status) && WSTOPSIG(status)) {
 			signal = WSTOPSIG(status);
 		}
-		if(WIFEXITED(status)) {
+		if(WIFEXITED(status) || WIFSIGNALED(status)) {
+			bool clean = WIFEXITED(status);
 			/* tracee exited. Cleanup. */
 			if(options.log_run)
 				fprintf(stderr,
-				  "[%d : %d] thread exited; process %d has %ld threads\n",
+				  "[%d : %d] thread exited %s (%d); process %d has %ld threads\n",
 				  tracee->id,
 				  tracee->tid,
+				  clean ? "cleanly" : "by signal",
+				  clean ? WEXITSTATUS(status) : WTERMSIG(status),
 				  tracee->proc->id,
 				  tracee->proc->num_threads - 1);
 			if(--tracee->proc->num_threads == 0) {
@@ -213,7 +217,8 @@ struct thread_tr *wait_for_syscall(void)
 					  tracee->tid,
 					  tracee->proc->id);
 				tracee->proc->exited = true;
-				tracee->proc->ecode = WEXITSTATUS(status);
+				/* emulate bash's exit codes */
+				tracee->proc->ecode = clean ? WEXITSTATUS(status) : WTERMSIG(status) + 128;
 			} else {
 				continue;
 			}
