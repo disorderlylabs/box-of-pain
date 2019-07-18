@@ -209,6 +209,9 @@ struct thread_tr *wait_for_syscall(void)
 				  clean ? WEXITSTATUS(status) : WTERMSIG(status),
 				  tracee->proc->id,
 				  tracee->proc->num_threads - 1);
+
+			/* emulate bash's exit codes */
+			tracee->proc->ecode = clean ? WEXITSTATUS(status) : WTERMSIG(status) + 128;
 			if(--tracee->proc->num_threads == 0) {
 				if(options.log_run)
 					fprintf(stderr,
@@ -217,8 +220,6 @@ struct thread_tr *wait_for_syscall(void)
 					  tracee->tid,
 					  tracee->proc->id);
 				tracee->proc->exited = true;
-				/* emulate bash's exit codes */
-				tracee->proc->ecode = clean ? WEXITSTATUS(status) : WTERMSIG(status) + 128;
 			} else {
 				continue;
 			}
@@ -581,6 +582,8 @@ int main(int argc, char **argv)
 						options.log_run = true;
 					} else if(!strcmp(tok, "stats")) {
 						options.follow_stats = true;
+					} else if(!strcmp(tok, "exit")) {
+						options.exit_codes = true;
 					} else {
 						fprintf(stderr, "Unknown logging type: %s\n", tok);
 						exit(255);
@@ -824,6 +827,15 @@ int main(int argc, char **argv)
 
 	bool clean = true;
 	for(auto p : current_run.proc_list) {
+		if(options.exit_codes) {
+			fprintf(stderr,
+			  "[%d : %d] process exited with code %d%s\n",
+			  p->id,
+			  p->pid,
+			  p->ecode,
+			  p->track_exit_code ? "" : " (ignored)");
+		}
+
 		if(p->ecode && p->track_exit_code) {
 			clean = false;
 		}

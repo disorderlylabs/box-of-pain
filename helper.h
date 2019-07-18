@@ -15,6 +15,7 @@ struct options {
 	bool log_follow;
 	bool log_run;
 	bool follow_stats;
+	bool exit_codes;
 };
 
 extern struct options options;
