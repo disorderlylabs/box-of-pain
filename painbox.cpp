@@ -90,6 +90,7 @@ void create_thread_from_clone(struct thread_tr *thread, int newtid, bool new_pro
 
 	if(new_process) {
 		struct proc_tr *ptr = new proc_tr();
+		ptr->track_exit_code = false; // TODO: should this be copied?
 		ptr->id = current_run.proc_list.size();
 		tr->syscall_rip = -1;
 		ptr->exited = false;
@@ -114,8 +115,6 @@ void create_thread_from_clone(struct thread_tr *thread, int newtid, bool new_pro
 		  tr->id,
 		  tr->proc->id,
 		  tr->proc->num_threads);
-
-
 }
 
 /* wait for a tracee to be ready to report a syscall. There is no
@@ -143,16 +142,17 @@ struct thread_tr *wait_for_syscall(void)
 				status = s;
 				break;
 			}
-
 		}
 		if(tracee == NULL) {
-			/* we didn't find any that we were waiting on that we _could_ service yet. Try all threads in a semi-fair manner. */
+			/* we didn't find any that we were waiting on that we _could_ service yet. Try all
+			 * threads in a semi-fair manner. */
 			/* TODO: determine a better method */
-			for(size_t i=0;i<current_run.thread_list.size();i++) {
-				size_t ti = (rr_c+i) % current_run.thread_list.size();
+			for(size_t i = 0; i < current_run.thread_list.size(); i++) {
+				size_t ti = (rr_c + i) % current_run.thread_list.size();
 				struct thread_tr *t = current_run.thread_list[ti];
 				tid = waitpid(t->tid, &status, __WALL | WNOHANG);
-				if(tid == t->tid) break;
+				if(tid == t->tid)
+					break;
 				tid = -1;
 				break;
 			}
@@ -167,21 +167,25 @@ struct thread_tr *wait_for_syscall(void)
 			tracee = find_tracee(tid);
 		}
 		if(tracee == NULL) {
-			fprintf(stderr, "waitpid returned untraced process/thread %d (status=%x). Enqueuing for later.\n", tid, status);
+			fprintf(stderr,
+			  "waitpid returned untraced process/thread %d (status=%x). Enqueuing for later.\n",
+			  tid,
+			  status);
 			assert(tid != -1);
 			wait_queue.push_back(std::make_pair(tid, status));
 			continue;
 		}
 		if((((status >> 16) & 0xffff) == PTRACE_EVENT_CLONE)
-				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
-				|| (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
+		   || (((status >> 16) & 0xffff) == PTRACE_EVENT_FORK)
+		   || (((status >> 16) & 0xffff) == PTRACE_EVENT_VFORK)) {
 			unsigned long newtid;
 			long r = ptrace(PTRACE_GETEVENTMSG, tid, 0, &newtid);
-			assert(newtid != tid);
+			assert((int)newtid != tid);
 			if(r == -1) {
 				perror("trace geteventmsg");
 			}
-			create_thread_from_clone(tracee, newtid, ((status >> 16) & 0xffff) != PTRACE_EVENT_CLONE);
+			create_thread_from_clone(
+			  tracee, newtid, ((status >> 16) & 0xffff) != PTRACE_EVENT_CLONE);
 		}
 
 		tracee->status = status;
@@ -240,7 +244,8 @@ void process_event(bool traced, struct thread_tr *tracee)
 	/* depending on the opmode, we're either following along or tracing a new
 	 * graph. */
 
-	if(!traced) return;
+	if(!traced)
+		return;
 
 	if(current_mode == OPMODE_FOLLOW) {
 		bool felloff = followrun_step(tracee);
@@ -280,7 +285,11 @@ int do_trace()
 
 		// Set option to make tracing calls easier
 		// Enable tracing on child threads
-		if(ptrace(PTRACE_SETOPTIONS, tr->tid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE | PTRACE_O_EXITKILL | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK)
+		if(ptrace(PTRACE_SETOPTIONS,
+		     tr->tid,
+		     0,
+		     PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACECLONE | PTRACE_O_EXITKILL | PTRACE_O_TRACEFORK
+		       | PTRACE_O_TRACEVFORK)
 		   != 0) {
 			perror("ptrace SETOPTIONS");
 		}
@@ -361,7 +370,7 @@ int do_trace()
 			errno = 0;
 
 			long retval = ptrace(PTRACE_PEEKUSER, tracee->tid, sizeof(long) * RAX);
-						if(errno != 0) {
+			if(errno != 0) {
 				warn("ptrace peek");
 				break;
 			}
@@ -373,7 +382,7 @@ int do_trace()
 				  syscall_table[tracee->sysnum].name,
 				  retval);
 			}
-if(retval == -38) {
+			if(retval == -38) {
 				fprintf(stderr, "ERR: ENOSYS\n");
 				abort();
 			}
@@ -473,7 +482,7 @@ int main(int argc, char **argv)
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; // 0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while((r = getopt(argc, argv, "e:dhTCfs:r:R:wSl:")) != EOF) {
+	while((r = getopt(argc, argv, "e:E:dhTCfs:r:R:wSl:")) != EOF) {
 		FILE *rf;
 		run *run;
 		switch(r) {
@@ -503,6 +512,7 @@ int main(int argc, char **argv)
 				// dump("run", run);
 				// exit(0);
 				break;
+			case 'E':
 			case 'e': {
 				if(containerization == MODE_NULL) {
 					containerization = MODE_R;
@@ -522,6 +532,7 @@ int main(int argc, char **argv)
 				tr->active = true;
 				tr->syscall = NULL;
 				ptr->exited = false;
+				ptr->track_exit_code = r == 'e';
 				tr->proc = ptr;
 				ptr->invoke = strdup(optarg);
 				current_run.thread_list.push_back(tr);
@@ -695,6 +706,7 @@ int main(int argc, char **argv)
 				fclose(trfile);
 				struct thread_tr *tr = new thread_tr();
 				struct proc_tr *ptr = new proc_tr();
+				/* TODO: track_exit_code */
 				tr->id = current_run.proc_list.size();
 				ptr->id = current_run.proc_list.size();
 				tr->sysnum = -1; // we're not in a syscall to start.
@@ -807,7 +819,7 @@ int main(int argc, char **argv)
 
 	bool clean = true;
 	for(auto p : current_run.proc_list) {
-		if(p->ecode) {
+		if(p->ecode && p->track_exit_code) {
 			clean = false;
 		}
 	}

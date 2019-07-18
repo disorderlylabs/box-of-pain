@@ -11,7 +11,7 @@ struct proc_tr {
 	int id;
 	int pid;
 	int ecode;
-	bool exited;
+	bool exited, track_exit_code;
 	/* TODO (major): thread synchro between threads in a process? */
 	std::vector<event *> event_seq;
 	std::vector<thread_tr *> proc_thread_list;

@@ -217,6 +217,8 @@ class Sysclone : public Syscall
 	void finish();
 	bool approx_eq(Syscall *o, int flags)
 	{
+		(void)o;
+		(void)flags;
 		return true; /* TODO */
 	}
 };
