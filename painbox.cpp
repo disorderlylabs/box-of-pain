@@ -281,7 +281,7 @@ int do_trace()
 
 		// Begin tracing
 		if(ptrace(PTRACE_SEIZE, tr->tid, 0, 0) != 0) {
-			perror("PTRACE_SEIZE");
+			err(100, "PTRACE_SEIZE: %d", tr->tid);
 		}
 
 		// Ensure tracing was successful
