@@ -649,6 +649,9 @@ int main(int argc, char **argv)
 					}
 				}
 				int pid = fork();
+				if(pid == -1) {
+					err(1, "fork failed");
+				}
 				if(pid == 0) {
 					// if(ptrace(PTRACE_TRACEME)!= 0){
 					//	perror("PTRACE_TRACEME");
