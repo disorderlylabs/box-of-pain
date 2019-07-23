@@ -58,7 +58,8 @@ void dump(const char *name, struct run *run)
 	// std::string inc = std::string(name) + std::string(".inc");
 	// FILE *dotout = fopen(m4.c_str(), "w");
 	// FILE *dotdefs = fopen(inc.c_str(), "w");
-	std::ofstream dot(name);
+	std::string outf = name;
+	std::ofstream dot(outf + ".dot");
 	dot << "digraph trace {\n";
 	dot << "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n";
 	node start;
