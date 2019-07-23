@@ -46,6 +46,8 @@ class event
 	Syscall *sc;
 	bool entry, pending, fault_event = false;
 	int trid, uuid;
+	size_t __num_children = 1;
+	ssize_t __nid = -1;
 	/* this vector lists the extra partial-order "parents" of this event */
 	std::vector<event *> extra_parents;
 	event(Syscall *s, bool e, int trid, int uuid)
