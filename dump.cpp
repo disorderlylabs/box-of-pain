@@ -30,9 +30,6 @@ static inline size_t eid_to_nid(event *e)
 	if(e->__nid == -1) {
 		e->__nid = __next_nid++;
 	}
-	if(e->__nid == 205) {
-		printf(":: %p\n", e);
-	}
 	return e->__nid;
 }
 
@@ -48,7 +45,6 @@ void dump(const char *name, struct run *run)
 		}
 	}
 	std::vector<node *> nodes;
-	printf("reserving %ld\n", max_nid + 1);
 	nodes.reserve(max_nid + 1);
 	nodes.resize(max_nid + 1);
 	for(size_t i = 0; i < max_nid + 1; i++) {
@@ -61,7 +57,8 @@ void dump(const char *name, struct run *run)
 	std::string outf = name;
 	std::ofstream dot(outf + ".dot");
 	dot << "digraph trace {\n";
-	dot << "rankdir=TB\nsplines=line\noutputorder=nodesfirst\n";
+	dot << "rankdir=\"TB\";\nsplines=\"true\";\noverlap=\"false\";\ncompound=\"true\";newrank=true;"
+	       "\n";
 	node start;
 	node end;
 	for(auto tr : run->thread_list) {
@@ -101,12 +98,13 @@ void dump(const char *name, struct run *run)
 		auto n = nodes[i];
 		if(!n)
 			continue;
+		/*
 		fprintf(stderr,
 		  "considering node: %ld (%ld %ld %d)\n",
 		  eid_to_nid(n->ev),
 		  n->outgoing.size(),
 		  n->incoming.size(),
-		  n->keep);
+		  n->keep);*/
 		if(n->outgoing.size() <= 1 && n->incoming.size() <= 1) {
 			if(!n->keep) {
 				if(n->incoming.size() > 0) {
@@ -128,6 +126,11 @@ void dump(const char *name, struct run *run)
 			}
 		}
 	}
+	fprintf(stderr,
+	  "removed %ld / %ld nodes (%f%%)\n",
+	  cleaned,
+	  max_nid,
+	  ((float)cleaned / max_nid) * 100);
 
 	std::string output = "";
 	std::string defs = "";
@@ -144,7 +147,7 @@ void dump(const char *name, struct run *run)
 		if(!n)
 			continue;
 
-		output += "subgraph cluster_{\n";
+		output += "subgraph cluster_G" + std::to_string(tr->id) + "{\nstyle=dotted;\n";
 		output += "start" + std::to_string(tr->tid) + " -> ";
 
 		std::string inv = tr->proc->invoke;
@@ -170,13 +173,13 @@ void dump(const char *name, struct run *run)
 				if(extra != n->outgoing.front()) {
 					/* all extra edges */
 					std::string ename = "node" + std::to_string(eid_to_nid(extra->ev));
-					extras += nname + " -> " + ename + ";\n";
+					extras += nname + " -> " + ename + " [constraint=\"true\"];\n";
 				}
 			}
 			output += nname + " -> ";
 			defs += nname + "[label=\"" + std::to_string(tr->id) + ":"
 			        + (n->ev->entry ? "entry" : "exit") + ":"
-			        + syscall_table[n->ev->sc->number].name + "\",group=\"G"
+			        + syscall_table[n->ev->sc->number].name + "\",model=\"circuit\",group=\"G"
 			        + std::to_string(tr->id) + "\",fillcolor=\""
 			        + (is_faulted ? "#6600ff88" : "#00ff0011") + "\",style=\"filled\"];\n";
 		}
