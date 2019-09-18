@@ -13,14 +13,12 @@ To run a test program:
 Q-server:
 ./painbox -e ./quorum_server -e ./client -e ./client -e ./client
 
-To make the out.m4 file into a PDF, run:
-m4 out.m4 > out.dot && dot -Tpdf -o out.pdf out.dot
-
-
 Tracing, Following, and Stepping, Oh My!
 ----------------------------------------
 To serialize a run, add to the execution commands: `-s test.boprun`
 
+To generate a dot file from a run, run ./painbox -R <serialized-run>, which will generate a file
+called "run.dot".
 
 
 
