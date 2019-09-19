@@ -13,7 +13,7 @@ SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp $(addpref
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender quorum_server_thrd
+EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender quorum_server_thrd primary p_client
 EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
 
 all: painbox $(EXAMPLES)

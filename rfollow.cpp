@@ -92,6 +92,7 @@ bool followrun_step(struct thread_tr *tracee)
 		if(other_event->fault_event) {
 			fprintf(stderr, ":: %d %d\n", other_event->uuid, last_event_idx);
 			/* inject a fault */
+			last_event->fault_event = true;
 			last_event->sc->fault();
 			// last_event->err_code = other_event->err_code;
 			// last_event->sc->ret_err = other_event->err_code;

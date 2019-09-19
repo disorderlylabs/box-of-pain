@@ -160,8 +160,9 @@ void dump(const char *name, struct run *run)
 			if(n == &end)
 				break;
 			std::string nname = "node" + std::to_string(eid_to_nid(n->ev));
-			bool is_faulted = run->fault_node_set.find(std::pair<int, int>(tr->id, n->ev->uuid))
-			                  != run->fault_node_set.end();
+			bool is_faulted = n->ev->fault_event;
+			// run->fault_node_set.find(std::pair<int, int>(tr->id, n->ev->uuid))
+			//                != run->fault_node_set.end();
 
 			if(auto clone = dynamic_cast<Sysclone *>(n->ev->sc)) {
 				if(n->ev->entry) {
@@ -179,8 +180,8 @@ void dump(const char *name, struct run *run)
 			output += nname + " -> ";
 			defs += nname + "[label=\"" + std::to_string(tr->id) + ":"
 			        + (n->ev->entry ? "entry" : "exit") + ":"
-			        + syscall_table[n->ev->sc->number].name + "\",model=\"circuit\",group=\"G"
-			        + std::to_string(tr->id) + "\",fillcolor=\""
+			        + syscall_table[n->ev->sc->number].name + ":" + std::to_string(n->ev->uuid)
+			        + "\",model=\"circuit\",group=\"G" + std::to_string(tr->id) + "\",fillcolor=\""
 			        + (is_faulted ? "#6600ff88" : "#00ff0011") + "\",style=\"filled\"];\n";
 		}
 
