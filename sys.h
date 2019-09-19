@@ -331,7 +331,7 @@ class Sysconnect
 	{
 		fprintf(stderr, "INJ CONN\n");
 		set_param(param_map[0], -1);
-		// set_return_value(-ECONNREFUSED);
+		set_return_value(-ECONNREFUSED);
 	}
 };
 
