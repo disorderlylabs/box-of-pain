@@ -1,0 +1,69 @@
+box-of-pain/
+├── Docker
+│   ├── README
+│   ├── build.sh
+│   ├── client.sh
+│   ├── graph.sh
+│   ├── out.dot
+│   ├── run.sh
+│   ├── server.sh
+│   └── tracer.sh
+├── Dockerfile
+├── Makefile
+├── README.md
+├── camflow
+│   ├── Vagrantfile
+│   ├── load.py
+│   ├── log2json.py
+│   ├── newparse.py
+│   ├── parse.py
+│   └── process.sh
+├── client.c
+├── contributors.txt
+├── defl.h
+├── doc
+│   └── draft_README
+├── dump.cpp
+├── format.txt
+├── helper.cpp
+├── helper.h
+├── killi.sh
+├── killr.sh
+├── monitor.sh
+├── p_client.c
+├── painbox.cpp
+├── primary.c
+├── qs_thrd.c
+├── quorum_server.c
+├── quorum_server.py
+├── rdlog_receiver.c
+├── rdlog_sender.c
+├── rfollow.cpp
+├── run.cpp
+├── run.h
+├── run_until_stable.sh
+├── run_until_stable_input.sh
+├── scnames.cpp
+├── server.c
+├── simplog_sender.c
+├── socket.cpp
+├── sockets.h
+├── src
+├── sys.h
+├── sysimp
+│   ├── accept.cpp
+│   ├── clone.cpp
+│   ├── connect.cpp
+│   ├── read.cpp
+│   ├── recvfrom.cpp
+│   ├── sendto.cpp
+│   └── write.cpp
+├── tests
+│   ├── out
+│   ├── quorum_server
+│   ├── run_many.sh
+│   ├── server
+│   └── simplelog
+└── tracee.h
+
+Directory structure from tree, update after moving stuff into tests folders
