@@ -23,33 +23,33 @@ box-of-pain/
 ├── defl.h
 ├── doc
 │   └── draft_README
-├── dump.cpp
+├── dump.cpp %
 ├── format.txt
-├── helper.cpp
-├── helper.h
+├── helper.cpp %
+├── helper.h %
 ├── killi.sh
 ├── killr.sh
 ├── monitor.sh
 ├── p_client.c
-├── painbox.cpp
+├── painbox.cpp %
 ├── primary.c
 ├── qs_thrd.c
 ├── quorum_server.c
 ├── quorum_server.py
 ├── rdlog_receiver.c
 ├── rdlog_sender.c
-├── rfollow.cpp
-├── run.cpp
-├── run.h
+├── rfollow.cpp %
+├── run.cpp %
+├── run.h %
 ├── run_until_stable.sh
 ├── run_until_stable_input.sh
-├── scnames.cpp
+├── scnames.cpp %
 ├── server.c
 ├── simplog_sender.c
-├── socket.cpp
-├── sockets.h
-├── src
-├── sys.h
+├── socket.cpp %
+├── sockets.h %
+├── src <- where box of pain source code 
+├── sys.h %
 ├── sysimp
 │   ├── accept.cpp
 │   ├── clone.cpp
@@ -66,4 +66,52 @@ box-of-pain/
 │   └── simplelog
 └── tracee.h
 
+TODO
+- Document
+- Reorganize testing code
+- Figure out a metric to see if it's broken
+
 Directory structure from tree, update after moving stuff into tests folders
+
+painbox args e:E:dhTCfs:r:R:wSl:
+
+#tracks new executable, complicated
+e/E - e tracks exit code, E doesn't
+
+d - options.dump 
+h - usage print
+T - containerization = MODE_T
+C - containerization = MODE_C
+f - ???
+s - serialize_run = optarg, current_run.name = optarg
+
+#run options, makes a new run
+r - no dump
+R - dump
+
+w - options.wait
+S - options.step
+
+l - sets logging types from sys/sock/follow/run/stats/exit
+
+Containerization modes:
+
+
+
+RUNNING
+-note shared namespace ???
+
+
+EXAMPLE PAIRS
+p_client, primary
+
+server, client
+
+rdlog_receiver, rdlog_sender
+
+quorum_server, qs_thrd,
+
+
+QUESTIONS:
+
+docker and filesystem

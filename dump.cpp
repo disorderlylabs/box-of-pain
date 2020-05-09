@@ -56,6 +56,9 @@ void dump(const char *name, struct run *run)
 	// FILE *dotdefs = fopen(inc.c_str(), "w");
 	std::string outf = name;
 	std::ofstream dot(outf + ".dot");
+
+	fprintf(stderr, "Starting output on %s.dot\n",outf.c_str());// added by me, nick
+
 	dot << "digraph trace {\n";
 	dot << "rankdir=\"TB\";\nsplines=\"true\";\noverlap=\"false\";\ncompound=\"true\";newrank=true;"
 	       "\n";
@@ -73,6 +76,7 @@ void dump(const char *name, struct run *run)
 				(void)clone;
 				n->keep = true;
 			}
+
 			n->ev = e;
 			for(auto pe : e->extra_parents) {
 				node *pn;

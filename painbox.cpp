@@ -529,9 +529,18 @@ int main(int argc, char **argv)
 
 	current_run.name = "current";
 
+	//debug code for docker reasons
+	int arg_index = 0;
+	fprintf(stderr, "args:");
+	while (argv[arg_index] != NULL)
+	{
+		fprintf(stderr, " %s", argv[arg_index++]);
+	}
+	fprintf(stderr,"\n");
+
 	enum modes
 	{
-		MODE_C,
+		MODE_C, // figure out what these mean
 		MODE_T,
 		MODE_NULL,
 		MODE_R
@@ -558,6 +567,7 @@ int main(int argc, char **argv)
 			}
 			if (options.log_run)
 				fprintf(stderr, "loading runfile %s\n", optarg);
+
 			run = new class run();
 			run->name = strdup(optarg);
 			run_load(run, rf);
