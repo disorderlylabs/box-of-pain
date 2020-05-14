@@ -13,8 +13,8 @@ CXXFLAGS=-Wall -Wextra -O3 -g -I$(SRC) -include defl.h -std=gnu++11
 CXX=g++
 
 SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
-		$(addprefix sysimp/,read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
-#SYSIMP = 
+		$(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
+
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
@@ -24,11 +24,10 @@ OBJECTS=$(SOURCES:.cpp=.o)
 all: $(BIN)/painbox examples
 
 $(BIN)/painbox: $(addprefix $(BIN)/,$(OBJECTS))
-	$(CXX) -o $(BIN)/painbox $(addprefix $(BIN)/,$(OBJECTS)) $(LIBS)
-
+	$(CXX) -o $(BIN)/painbox $(addprefix $(BIN)/,$(notdir $(OBJECTS))) $(LIBS)
 
 $(BIN)/%.o: $(SRC)/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
+	$(CXX) $(CXXFLAGS) -c -o $(BIN)/$(notdir $@)  $< -MD
 
 examples:
 	echo "examples TODO"
