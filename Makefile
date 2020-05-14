@@ -16,10 +16,11 @@ OBJECTS=$(SOURCES:.cpp=.o)
 #EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender quorum_server_thrd primary p_client
 #EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
 
-all: painbox 
+all: painbox examples
 
 painbox: $(OBJECTS)
 	$(CXX) -o painbox $(OBJECTS) $(LIBS)
+
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
@@ -27,8 +28,11 @@ painbox: $(OBJECTS)
 %: %.c
 	$(CC) $(CFLAGS) -o $@ $< -MD
 
-quorum_server_thrd: qs_thrd.c
-	$(CC) $(CFLAGS) -o $@ $< -lpthread
+examples:
+	make -C examples
+
+#quorum_server_thrd: qs_thrd.c
+#	$(CC) $(CFLAGS) -o $@ $< -lpthread
 
 #-include $(DEPS) $(EXAMPLES_SRC:.c=.d)
 

@@ -100,17 +100,7 @@ Containerization modes:
 
 RUNNING
 -note shared namespace ???
-
-
-EXAMPLE PAIRS
-p_client, primary
-
-server, client
-
-rdlog_receiver, rdlog_sender
-
-quorum_server, qs_thrd,
-
+  - it's the --pid thing
 
 QUESTIONS:
 
