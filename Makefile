@@ -23,6 +23,7 @@ painbox: $(addprefix $(BIN)/,$(OBJECTS))
 	$(CXX) -o painbox $(addprefix $(BIN)/,$(OBJECTS)) $(LIBS)
 
 $(BIN)/%.o: $(SRC)/%.cpp 
+	# create directory in bin (if it doesn't exist)
 	-@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
