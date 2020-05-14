@@ -3,4 +3,7 @@
 # recursive make is fiiiiine, they're independant 
 all: *
 %: %/Makefile
-	-make -C $@
+	-@make -C $@
+
+clean: 
+	-@make -C $< clean

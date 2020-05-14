@@ -1,10 +1,3 @@
-
-
-#CXXFLAGS+=-fsanitize=address -fsanitize=undefined
-#LIBS+=-lasan -lubsan
-
-LIBS=-lstdc++
-
 # bin and src directories
 BIN=bin
 SRC=src
@@ -12,31 +5,32 @@ SRC=src
 CXXFLAGS=-Wall -Wextra -O3 -g -I$(SRC) -include defl.h -std=gnu++11
 CXX=g++
 
+#note: add back in prefixing AND flat bin structure somehow?
 SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
-		$(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
+ 		$(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
 
-DEPS=$(SOURCES:.cpp=.d)
-OBJECTS=$(SOURCES:.cpp=.o)
+DEPS=$(SOURCES:.cpp=.d) 
+OBJECTS=$(SOURCES:.cpp=.o) 
 
-all: bin $(BIN)/painbox examples
+LIBS=-lstdc++
+
+all: bin painbox examples
 
 bin:
-	-mkdir $(BIN)
+	-@mkdir -p $(BIN)
 
-$(BIN)/painbox: $(addprefix $(BIN)/,$(OBJECTS))
-	$(CXX) -o painbox $(addprefix $(BIN)/,$(notdir $(OBJECTS))) $(LIBS)
+painbox: $(addprefix $(BIN)/,$(OBJECTS))
+	$(CXX) -o painbox $(addprefix $(BIN)/,$(OBJECTS)) $(LIBS)
 
-$(BIN)/%.o: $(SRC)/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $(BIN)/$(notdir $@)  $< -MD
+$(BIN)/%.o: $(SRC)/%.cpp 
+	-@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
+.PHONY: examples
 examples:
-	make -C examples
+	@$(MAKE) -sC examples
 
-#quorum_server_thrd: qs_thrd.c
-#	$(CC) $(CFLAGS) -o $@ $< -lpthread
-
-#-include $(DEPS) $(EXAMPLES_SRC:.c=.d)
-
-# removed EXAMPLES and $(EXAMPLES_SRC:.c=.d) from clean
 clean:
-	-rm -f $(OBJECTS) $(DEPS) painbox client server *.m4 *.pdf *.inc *.dot 
+	-rm -f painbox *.m4 *.pdf *.inc *.dot
+	-rm -rf $(BIN)/*
+	-@make -sC examples clean

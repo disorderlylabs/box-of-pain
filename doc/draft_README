@@ -1,4 +1,83 @@
+box-of-pain
+├── Docker
+│   ├── README
+│   ├── build.sh
+│   ├── client.sh
+│   ├── graph.sh
+│   ├── new_run.sh
+│   ├── run.sh
+│   ├── server.sh
+│   ├── start_tracee.sh
+│   ├── start_tracer.sh
+│   └── tracer.sh
+├── Dockerfile
+├── Makefile
+├── README.md
+├── bin
+├── camflow
+│   ├── Vagrantfile
+│   ├── load.py
+│   ├── log2json.py
+│   ├── newparse.py
+│   ├── parse.py
+│   └── process.sh
+├── doc
+│   ├── contributors.txt
+│   ├── draft_README
+│   └── format.txt
+├── examples
+│   ├── Makefile
+│   ├── client-server
+│   │   ├── Makefile
+│   │   ├── client.c
+│   │   └── server.c
+│   ├── primary
+│   │   ├── Makefile
+│   │   ├── p_client.c
+│   │   └── primary.c
+│   ├── quorum
+│   │   ├── Makefile
+│   │   ├── qs_thrd.c
+│   │   ├── quorum_server.c
+│   │   └── quorum_server.py
+│   └── rdlog
+│       ├── Makefile
+│       ├── rdlog_receiver.c
+│       ├── rdlog_sender.c
+│       └── simplog_sender.c
+├── scripts
+│   ├── killi.sh
+│   ├── killr.sh
+│   ├── monitor.sh
+│   ├── run_until_stable.sh
+│   └── run_until_stable_input.sh
+├── src
+│   ├── defl.h
+│   ├── dump.cpp
+│   ├── helper.cpp
+│   ├── helper.h
+│   ├── painbox.cpp
+│   ├── rfollow.cpp
+│   ├── run.cpp
+│   ├── run.h
+│   ├── scnames.cpp
+│   ├── socket.cpp
+│   ├── sockets.h
+│   ├── sys.h
+│   ├── sysimp
+│   │   ├── accept.cpp
+│   │   ├── clone.cpp
+│   │   ├── connect.cpp
+│   │   ├── read.cpp
+│   │   ├── recvfrom.cpp
+│   │   ├── sendto.cpp
+│   │   └── write.cpp
+│   └── tracee.h
+└── tests
+    ├── out
+    └── run_many.sh
 
+14 directories, 92 files
 
 TODO
 - Document
@@ -35,7 +114,42 @@ Containerization modes:
 RUNNING
 -note shared namespace ???
   - it's the --pid thing
+- ideally just some scripts
+
 
 QUESTIONS:
 
 docker and filesystem
+
+EXAMPLES
+
+  examples/
+  ├── Makefile
+  ├── client-server
+  │   ├── Makefile
+  │   ├── client.c
+  │   └── server.c
+  ├── primary
+  │   ├── Makefile
+  │   ├── p_client.c
+  │   └── primary.c
+  ├── quorum
+  │   ├── Makefile
+  │   ├── qs_thrd.c
+  │   ├── quorum_server.c
+  │   └── quorum_server.py
+  └── rdlog
+      ├── Makefile
+      ├── rdlog_receiver.c
+      ├── rdlog_sender.c
+      └── simplog_sender.c
+
+  The examples directory consists of a makefile, which is filled with example code. Each example program has its own folder
+and corresponding makefile. It is expected (by a shell script to run BoP on all/some of the examples) that the program is 
+in the root of the program's folder 
+
+MAKEFILE
+Will break if there's a file with the same name in sysimp and src. Should fix that.
+
+
+
