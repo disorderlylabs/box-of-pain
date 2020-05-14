@@ -1,3 +1,5 @@
+DOCKER SCRIPTS FOLDER
+
 Containerized box of Pain:
 Split a box of pain across containers.
 Organization:
@@ -19,3 +21,4 @@ TODO:
 
 Make a more general docker image. Ideally, it could be built on top of the image to be traced, and possibly inherit its entrypoints.
 
+Add scripts for easier running 

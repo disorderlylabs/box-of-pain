@@ -18,19 +18,19 @@ SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.c
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-#EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender quorum_server_thrd primary p_client
-#EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
+all: bin $(BIN)/painbox examples
 
-all: $(BIN)/painbox examples
+bin:
+	-mkdir $(BIN)
 
 $(BIN)/painbox: $(addprefix $(BIN)/,$(OBJECTS))
-	$(CXX) -o $(BIN)/painbox $(addprefix $(BIN)/,$(notdir $(OBJECTS))) $(LIBS)
+	$(CXX) -o painbox $(addprefix $(BIN)/,$(notdir $(OBJECTS))) $(LIBS)
 
 $(BIN)/%.o: $(SRC)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $(BIN)/$(notdir $@)  $< -MD
 
 examples:
-	echo "examples TODO"
+	make -C examples
 
 #quorum_server_thrd: qs_thrd.c
 #	$(CC) $(CFLAGS) -o $@ $< -lpthread
