@@ -2,10 +2,10 @@
 BIN=bin
 SRC=src
 
+# makefile variables
 CXXFLAGS=-Wall -Wextra -O3 -g -I$(SRC) -include defl.h -std=gnu++11
 CXX=g++
 
-#note: add back in prefixing AND flat bin structure somehow?
 SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
  		$(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
 
@@ -23,15 +23,16 @@ painbox: $(addprefix $(BIN)/,$(OBJECTS))
 	$(CXX) -o painbox $(addprefix $(BIN)/,$(OBJECTS)) $(LIBS)
 
 $(BIN)/%.o: $(SRC)/%.cpp 
-	# create directory in bin (if it doesn't exist)
-	-@mkdir -p $(dir $@)
+	-@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
-.PHONY: examples
+.PHONY: examples clean
 examples:
-	@$(MAKE) -sC examples
+	$(MAKE) -sC examples
+
+-include $(addprefix $(BIN)/, $(DEPS))
 
 clean:
 	-rm -f painbox *.m4 *.pdf *.inc *.dot
 	-rm -rf $(BIN)/*
-	-@make -sC examples clean
+	-@$(MAKE) -sC examples ARGS=clean
