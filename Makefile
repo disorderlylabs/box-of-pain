@@ -35,4 +35,4 @@ examples:
 clean:
 	-rm -f painbox *.m4 *.pdf *.inc *.dot
 	-rm -rf $(BIN)/*
-	-@$(MAKE) -sC examples ARGS=clean
+	-$(MAKE) -sC examples ARGS=clean

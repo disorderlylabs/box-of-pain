@@ -1,8 +1,14 @@
 # Makefile for all of the examples
-# ARGS is set by the main makefile to "clean" sometimes
-all: *
+# ARGS is set to "clean" sometimes. otherwise empty
+all: */
 
-%: %/Makefile 
-	$(MAKE) -sC $@ $(ARGS)
+%: %Makefile FORCE
+	-$(MAKE) -C $@ $(ARGS)
 
-	
+# always want above to run
+FORCE:
+
+# :V
+.PHONY: clean
+clean:
+	-$(MAKE) -sC . ARGS=clean
