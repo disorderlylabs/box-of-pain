@@ -8,7 +8,7 @@ all: */
 # always want above to run
 FORCE:
 
-# :V
+# sorry.
 .PHONY: clean
 clean:
 	-$(MAKE) -sC . ARGS=clean

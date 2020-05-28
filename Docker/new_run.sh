@@ -5,6 +5,6 @@ docker run \
     --cap-add=SYS_PTRACE \
     -it \
     --rm \
-    -v type=bind,source="$(pwd)"/tmp,target=/tmp \
+    --mount type=bind,source="$(pwd)"/tmp,target=/tmp \
     --entrypoint \
-    ./painbox painbox -d -e ./client -e ./server
+    ./painbox painbox -d -e examples/client-server/client -e examples/client-server/server
