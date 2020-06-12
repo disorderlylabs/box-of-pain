@@ -32,7 +32,15 @@ static inline size_t eid_to_nid(event *e)
 	}
 	return e->__nid;
 }
-
+/*
+	Creates the .dot file for processing with m4
+	name = name of file
+    run = the run to print ot file
+    folder = which folder to output the file
+		     set to /tmp/ when ran with docker args
+	std::string folder= ""
+	// , std::string folder= ""
+*/
 void dump(const char *name, struct run *run)
 {
 	__next_nid = 0;
@@ -57,7 +65,7 @@ void dump(const char *name, struct run *run)
 	std::string outf = name;
 	std::ofstream dot(outf + ".dot");
 
-	fprintf(stderr, "Starting output on %s.dot\n",outf.c_str());// added by me, nick
+	fprintf(stderr, "Starting output on %s.dot\n",outf.c_str()); // added by me, nick
 
 	dot << "digraph trace {\n";
 	dot << "rankdir=\"TB\";\nsplines=\"true\";\noverlap=\"false\";\ncompound=\"true\";newrank=true;"
@@ -68,6 +76,13 @@ void dump(const char *name, struct run *run)
 		node *last = NULL;
 		for(auto e : tr->event_seq) {
 			node *n;
+			/*
+			replace below with 
+			if(!nodes[eid_to_nid(e)])
+				nodes[eid_to_nid(e) = new node()
+			n = nodes[eid_to_nid(e)];
+			after tests
+			*/
 			if(nodes[eid_to_nid(e)])
 				n = nodes[eid_to_nid(e)];
 			else

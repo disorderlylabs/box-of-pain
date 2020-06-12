@@ -2,7 +2,7 @@ FROM alpine
 RUN apk update
 RUN apk add build-base gdb
 RUN mkdir /tracees
-WORKDIR /output
+WORKDIR /box-of-pain
 COPY . /box-of-pain
-RUN make -C /box-of-pain
+RUN make 
 CMD /bin/sh

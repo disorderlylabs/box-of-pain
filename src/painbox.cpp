@@ -541,9 +541,9 @@ int main(int argc, char **argv)
 	enum modes
 	{
 		MODE_C, // figure out what these mean
-		MODE_T,
+		MODE_T, // comment below semi-heplful
 		MODE_NULL,
-		MODE_R
+		MODE_R //regular mode maybe?
 	};
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; // 0 on init, 1 on containers, 2 on tracer, -1 on regular mode
@@ -759,14 +759,16 @@ int main(int argc, char **argv)
 				/* wait for the tracer to get us going later (in do_trace) */
 				if (outfd != -1)
 				{
-					close(1);
-					dup(outfd);
+					close(STDOUT_FILENO);
+					if(dup(outfd) == -1)
+						perror("outfd");
 					close(outfd);
 				}
 				if (infd != -1)
 				{
-					close(0);
-					dup(infd);
+					close(STDIN_FILENO);
+					if(dup(infd) == -1)
+						perror("infd");
 					close(infd);
 				}
 				raise(SIGSTOP);

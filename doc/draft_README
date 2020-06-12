@@ -1,101 +1,35 @@
+Directory structure reference
+
 box-of-pain
-├── Docker
-│   ├── README
-│   ├── build.sh
-│   ├── client.sh
-│   ├── graph.sh
-│   ├── new_run.sh
-│   ├── run.sh
-│   ├── server.sh
-│   ├── start_tracee.sh
-│   ├── start_tracer.sh
-│   └── tracer.sh
-├── Dockerfile
-├── Makefile
-├── README.md
-├── bin
-├── camflow
-│   ├── Vagrantfile
-│   ├── load.py
-│   ├── log2json.py
-│   ├── newparse.py
-│   ├── parse.py
-│   └── process.sh
-├── doc
-│   ├── contributors.txt
-│   ├── draft_README
-│   └── format.txt
-├── examples
-│   ├── Makefile
-│   ├── client-server
-│   │   ├── Makefile
-│   │   ├── client.c
-│   │   └── server.c
-│   ├── primary
-│   │   ├── Makefile
-│   │   ├── p_client.c
-│   │   └── primary.c
-│   ├── quorum
-│   │   ├── Makefile
-│   │   ├── qs_thrd.c
-│   │   ├── quorum_server.c
-│   │   └── quorum_server.py
-│   └── rdlog
-│       ├── Makefile
-│       ├── rdlog_receiver.c
-│       ├── rdlog_sender.c
-│       └── simplog_sender.c
-├── scripts
-│   ├── killi.sh
-│   ├── killr.sh
-│   ├── monitor.sh
-│   ├── run_until_stable.sh
-│   └── run_until_stable_input.sh
+├── Docker    <= collection of docker-related shell scripts
+├── bin       <= directory for compiled binaries
+├── camflow   <= not sure what goes in here. ask peteer??
+├── doc       <= documentation folder. You are here
+├── examples  <= example programs to run BoP on
+├── scripts   <= shell scripts, now in a folder
 ├── src
-│   ├── defl.h
-│   ├── dump.cpp
-│   ├── helper.cpp
-│   ├── helper.h
-│   ├── painbox.cpp
-│   ├── rfollow.cpp
-│   ├── run.cpp
-│   ├── run.h
-│   ├── scnames.cpp
-│   ├── socket.cpp
-│   ├── sockets.h
-│   ├── sys.h
-│   ├── sysimp
-│   │   ├── accept.cpp
-│   │   ├── clone.cpp
-│   │   ├── connect.cpp
-│   │   ├── read.cpp
-│   │   ├── recvfrom.cpp
-│   │   ├── sendto.cpp
-│   │   └── write.cpp
-│   └── tracee.h
 └── tests
     ├── out
     └── run_many.sh
 
-14 directories, 92 files
-
-TODO
+TODO 
 - Document
-- Reorganize testing code
 - Figure out a metric to see if it's broken
+- UDP example 
+- Fix Docker/tracer.sh, Docker/tracee.sh
+- Return values
+- Outfile flag 
 
-Directory structure from tree, update after moving stuff into tests folders
-
-painbox args e:E:dhTCfs:r:R:wSl:
+painbox args are e:E:dhTCfs:r:R:wSl:
 
 #tracks new executable, complicated
-e/E - e tracks exit code, E doesn't
+e/E - e tracks exit code, E doesn't. Followed by comma-seperated arguments
 
-d - options.dump 
-h - usage print
+d - options.dump
+h - Help. Prints usage
 T - containerization = MODE_T
 C - containerization = MODE_C
-f - ???
+f - ??? nothing. still included into it? maybe co-opt as a directory flag
 s - serialize_run = optarg, current_run.name = optarg
 
 #run options, makes a new run
@@ -108,18 +42,9 @@ S - options.step
 l - sets logging types from sys/sock/follow/run/stats/exit
 
 Containerization modes:
+?? Found the answer to this somewhere 
 
 
-
-RUNNING
--note shared namespace ???
-  - it's the --pid thing
-- ideally just some scripts
-
-
-QUESTIONS:
-
-docker and filesystem
 
 EXAMPLES
 
@@ -145,11 +70,21 @@ EXAMPLES
       └── simplog_sender.c
 
   The examples directory consists of a makefile, which is filled with example code. Each example program has its own folder
-and corresponding makefile. It is expected (by a shell script to run BoP on all/some of the examples) that the program is 
-in the root of the program's folder 
+and corresponding makefile. It is expected (by a future testing script for all/some of the examples) that the program is 
+in the root of the program's folder.
 
-MAKEFILE
-Will break if there's a file with the same name in sysimp and src. Should fix that.
+Note that client runs on 1234 and both server/quorum-server listen on port 1234
+
+Makefile
+  Mirrors the structure of the source directory in bin with .d/.o files instead of .cpp. Also removes the bin directory - don't set bin to anything important.
 
 
+Docker
+  For running scripts on host relating to docker. Requires docker to run
 
+scripts
+  Scripts to run in either docker or a native Linux environment
+
+
+SOURCE CODE
+  In general, box of pain intercepts and logs system calls in the run structure

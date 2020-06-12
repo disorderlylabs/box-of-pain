@@ -7,4 +7,4 @@ docker run \
     --rm \
     --mount type=bind,source="$(pwd)"/output,target=/output \
     --entrypoint \
-    /box-of-pain/painbox painbox -d -e /box-of-pain/examples/client-server/client -e /box-of-pain/examples/client-server/server
+    ./painbox painbox -d -e examples/client-server/client -e examples/client-server/server
