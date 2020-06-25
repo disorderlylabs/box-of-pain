@@ -22,28 +22,6 @@ TODO
 
 painbox args are e:E:dhTCfs:r:R:wSl:
 
-#tracks new executable, complicated
-e/E - e tracks exit code, E doesn't. Followed by comma-seperated arguments
-
-d - options.dump
-h - Help. Prints usage
-T - containerization = MODE_T
-C - containerization = MODE_C
-f - ??? nothing. still included into it? maybe co-opt as a directory flag
-s - serialize_run = optarg, current_run.name = optarg
-
-#run options, makes a new run
-r - no dump
-R - dump
-
-w - options.wait
-S - options.step
-
-l - sets logging types from sys/sock/follow/run/stats/exit
-
-Containerization modes:
-?? Found the answer to this somewhere 
-
 
 
 EXAMPLES

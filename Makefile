@@ -34,5 +34,5 @@ examples:
 
 clean:
 	-rm -f painbox *.m4 *.pdf *.inc *.dot
-	-rm -rf $(BIN)/*
+	-rm -r $(BIN)/*
 	-$(MAKE) -sC examples ARGS=clean

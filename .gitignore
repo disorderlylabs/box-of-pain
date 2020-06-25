@@ -21,3 +21,4 @@ simplog_sender
 sls
 server
 .DS_STORE
+.vscode

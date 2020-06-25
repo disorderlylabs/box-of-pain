@@ -1,7 +1,6 @@
-DOCKER SCRIPTS FOLDER
-
 Containerized box of Pain:
 Split a box of pain across containers.
+
 Organization:
 tracer === the main box--of--pain process, which traces the others
     |--- process_1 === Process to be traced
@@ -20,5 +19,3 @@ Within a container, the following options are available:
 TODO:
 
 Make a more general docker image. Ideally, it could be built on top of the image to be traced, and possibly inherit its entrypoints.
-
-Add scripts for easier running 

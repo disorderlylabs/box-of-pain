@@ -29,7 +29,17 @@
 
 /* TODO: we can get all of the registers in one syscall. Maybe do that instead of PEEKUSER? */
 
-struct options options = {};
+struct options options = {
+	.outdir = "",
+	.wait = false,
+	.dump = false,
+	.step = false,
+	.log_syscalls = false,
+	.log_sockets = false,
+	.log_follow = false,
+	.log_run = false,
+	.follow_stats = false,
+	.exit_codes = false};
 
 enum opmode
 {
@@ -496,7 +506,15 @@ void usage(void)
 	printf("usage: box-of-pain [-d] -e prog,arg1,arg2,... [-e prog,arg1,arg2,...]...\n");
 	printf("options:\n");
 	printf("   -e prog,arg1,...     : Trace program 'prog' with arguments arg1...\n");
-	printf("   -d                   : Dump tracing info\n");
+	printf("   -d[/directory/]      : Dump tracing info, optionally into given directory.\n");
+	printf("   -C                   : Sets containerization to C\n");
+	printf("   -h                   : Prints usage\n");
+	printf("   -l arg1,...          : args must be sys|sock|follow|run|stats|exit\n");
+	printf("   -r/R                 : New run (R dumps, r doesn't)\n");
+	printf("   -S                   : Sets options.step\n");
+	printf("   -s run name          : Serializes the run\n");
+	printf("   -T                   : Sets containerization to T\n");
+	printf("   -w                   : Wait\n");
 }
 
 #define SETSYS(s)                                             \
@@ -529,15 +547,6 @@ int main(int argc, char **argv)
 
 	current_run.name = "current";
 
-	//debug code for docker reasons
-	int arg_index = 0;
-	fprintf(stderr, "args:");
-	while (argv[arg_index] != NULL)
-	{
-		fprintf(stderr, " %s", argv[arg_index++]);
-	}
-	fprintf(stderr,"\n");
-
 	enum modes
 	{
 		MODE_C, // figure out what these mean
@@ -548,7 +557,7 @@ int main(int argc, char **argv)
 	char *serialize_run = NULL;
 	int containerization = MODE_NULL; // 0 on init, 1 on containers, 2 on tracer, -1 on regular mode
 	int r;
-	while ((r = getopt(argc, argv, "e:E:dhTCfs:r:R:wSl:")) != EOF)
+	while ((r = getopt(argc, argv, "e:E:d::hTCs:r:R:wSl:")) != EOF)
 	{
 		FILE *rf;
 		run *run;
@@ -619,6 +628,10 @@ int main(int argc, char **argv)
 			return 255;
 		case 'd':
 			options.dump = true;
+			if (optarg)
+			{
+				options.outdir = strdup(optarg);
+			}
 			break;
 		case 'C':
 			if (options.log_run)
@@ -760,14 +773,14 @@ int main(int argc, char **argv)
 				if (outfd != -1)
 				{
 					close(STDOUT_FILENO);
-					if(dup(outfd) == -1)
+					if (dup(outfd) == -1)
 						perror("outfd");
 					close(outfd);
 				}
 				if (infd != -1)
 				{
 					close(STDIN_FILENO);
-					if(dup(infd) == -1)
+					if (dup(infd) == -1)
 						perror("infd");
 					close(infd);
 				}

@@ -7,6 +7,8 @@
 #include <tuple>
 
 struct options {
+	const char* outdir;
+	
 	bool wait;
 	bool dump;
 	bool step;
