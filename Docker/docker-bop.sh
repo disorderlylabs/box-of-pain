@@ -1,8 +1,11 @@
 #!/bin/bash
 
-path=$(pwd)
+# sample file
+# run to get into dockerland
 
-#./painbox -e examples/client-server/client -e examples/client-server/server -d /tmp/
+# used so you can run it from wherever
+# and remove the /mnt for WSL compatability reasons
+path=`realpath $(dirname $0)/..`
 
 docker run \
     --cap-add=SYS_PTRACE \

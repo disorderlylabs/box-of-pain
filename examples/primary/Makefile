@@ -5,4 +5,4 @@ CC=gcc
 all: $(EXECS)
 
 clean:
-	rm $(EXECS)
+	-rm -f $(EXECS)

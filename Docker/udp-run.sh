@@ -1,8 +1,8 @@
 #!/bin/bash
 
-path=$(pwd)
+path=`realpath $(dirname $0)/..`
 
-#./painbox -e examples/udp-client-server/client -e examples/udp-client-server/server -d /tmp/
+#./painbox -e examples/udp-client-server/client -e examples/udp-client-server/server -d/tmp/
 
 docker run \
     --cap-add=SYS_PTRACE \

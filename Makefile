@@ -33,6 +33,6 @@ examples:
 -include $(addprefix $(BIN)/, $(DEPS))
 
 clean:
-	-rm -f painbox *.m4 *.pdf *.inc *.dot
-	-rm -r $(BIN)/*
-	-$(MAKE) -sC examples ARGS=clean
+	-@rm -f painbox *.m4 *.pdf *.inc *.dot
+	-@rm -rf $(BIN)/*
+	-@$(MAKE) -sC examples ARGS=clean

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-path=$(pwd)
+path=`realpath $(dirname $0)/..`
 
 docker run \
     --cap-add=SYS_PTRACE \

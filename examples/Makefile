@@ -11,4 +11,4 @@ FORCE:
 # sorry.
 .PHONY: clean
 clean:
-	-$(MAKE) -sC . ARGS=clean
+	-@$(MAKE) -s -C . ARGS=clean
