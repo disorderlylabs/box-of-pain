@@ -1,38 +1,32 @@
-# bin and src directories
-BIN=bin
 SRC=src
 
 # makefile variables
 CXXFLAGS=-Wall -Wextra -O3 -g -I$(SRC) -include defl.h -std=gnu++11
 CXX=g++
 
-SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
- 		$(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
+SOURCES_RELATIVE=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
+                 $(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
 
-DEPS=$(SOURCES:.cpp=.d) 
-OBJECTS=$(SOURCES:.cpp=.o) 
+SOURCES=$(addprefix $(SRC)/, $(SOURCES_RELATIVE))
+DEPS=$(SOURCES:.cpp=.d)
+OBJECTS=$(SOURCES:.cpp=.o)
 
 LIBS=-lstdc++
 
-all: bin painbox examples
+all: painbox examples
 
-bin:
-	-@mkdir -p $(BIN)
+painbox:$(OBJECTS)
+	$(CXX) -o painbox $(OBJECTS) $(LIBS)
 
-painbox: $(addprefix $(BIN)/,$(OBJECTS))
-	$(CXX) -o painbox $(addprefix $(BIN)/,$(OBJECTS)) $(LIBS)
-
-$(BIN)/%.o: $(SRC)/%.cpp 
-	-@mkdir -p $(@D)
+$(SRC)/%.o: $(SRC)/%.cpp 
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
 .PHONY: examples clean
 examples:
-	$(MAKE) -sC examples
+	@$(MAKE) -sC examples
 
--include $(addprefix $(BIN)/, $(DEPS))
+-include $(DEPS)
 
 clean:
-	-@rm -f painbox *.m4 *.pdf *.inc *.dot
-	-@rm -rf $(BIN)/*
-	-@$(MAKE) -sC examples ARGS=clean
+	-rm -f painbox *.m4 *.pdf *.inc *.dot $(DEPS) $(OBJECTS)
+	-$(MAKE) -sC examples ARGS=clean

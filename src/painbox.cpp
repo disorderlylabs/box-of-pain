@@ -507,14 +507,14 @@ void usage(void)
 	printf("options:\n");
 	printf("   -e prog,arg1,...     : Trace program 'prog' with arguments arg1...\n");
 	printf("   -d[/directory/]      : Dump tracing info, optionally into given directory.\n");
-	printf("   -C                   : Sets containerization to C\n");
+	printf("   -C                   : Designates tracer process: see Docker/README \n");
+	printf("   -T                   : Designates tracee process: see Docker/README\n");
 	printf("   -h                   : Prints usage\n");
-	printf("   -l arg1,...          : args must be sys|sock|follow|run|stats|exit\n");
+	printf("   -l arg1,...          : Logging flag, args must be sys|sock|follow|run|stats|exit\n");
 	printf("   -r/R                 : New run (R dumps, r doesn't)\n");
 	printf("   -S                   : Sets options.step\n");
 	printf("   -s run name          : Serializes the run\n");
-	printf("   -T                   : Sets containerization to T\n");
-	printf("   -w                   : Wait\n");
+	printf("   -w                   : Waits for keypress to start tracing\n");
 }
 
 #define SETSYS(s)                                             \
@@ -836,8 +836,13 @@ int main(int argc, char **argv)
 			}
 			int pid = atoi(trdirit->d_name);
 			char name[100];
-			fgets(name, 100, trfile);
-			printf("inserted %s %u\n", name, pid);
+			if (fgets(name, 100, trfile) != NULL)
+			{
+				printf("inserted %s %u\n", name, pid);
+			}
+			else {
+				fprintf(stderr, "%d: fgets failed", __LINE__);
+			}
 			fclose(trfile);
 			struct thread_tr *tr = new thread_tr();
 			struct proc_tr *ptr = new proc_tr();
