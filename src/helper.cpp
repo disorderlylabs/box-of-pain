@@ -19,9 +19,11 @@ void register_syscall_rip(struct thread_tr *t)
 	 * "jump" to. The easiest way to do this is to wait for a syscall (which we're doing
 	 * anyway) and then figure out the RIP of the process (and subtract the size of the
 	 * syscall instruction) */
-	if(t->syscall_rip == 0) {
+	if (t->syscall_rip == 0)
+	{
 		memset(&t->uregs, 0, sizeof(t->uregs));
-		if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1) {
+		if (ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) != -1)
+		{
 			t->syscall_rip = t->uregs.rip - SYSCALL_INSTRUCTION_SZ;
 			//		if(options.log_run)
 			//			fprintf(
@@ -34,7 +36,8 @@ void register_syscall_rip(struct thread_tr *t)
 long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long d, long e, long f)
 {
 	assert(t->active);
-	if(t->syscall_rip == 0 || (long)t->syscall_rip == -1) {
+	if (t->syscall_rip == 0 || (long)t->syscall_rip == -1)
+	{
 		/* dont inject a syscall before we detect the first syscall. Simple! */
 		fprintf(stderr, "failed to inject syscall into tracee %d\n", t->id);
 		abort();
@@ -52,7 +55,7 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 	 *   - Deliver a signal if we got one
 	 *   - Restore regs, and return retval (after setting errno).
 	 */
-	if(ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) == -1)
+	if (ptrace(PTRACE_GETREGS, t->tid, NULL, &t->uregs) == -1)
 		err(1, "ptrace-gr");
 	struct user_regs_struct regs = t->uregs;
 	regs.rax = num;
@@ -68,42 +71,53 @@ long inject_syscall(struct thread_tr *t, long num, long a, long b, long c, long 
 	int status;
 	int sig = 0;
 	int sig_count = 0;
-	while(true) {
-		if(ptrace(PTRACE_SINGLESTEP, t->tid, NULL, NULL) == -1)
+	while (true)
+	{
+		if (ptrace(PTRACE_SINGLESTEP, t->tid, NULL, NULL) == -1)
 			err(1, "ptrace-step");
 		waitpid(t->tid, &status, 0);
-		if(WIFCONTINUED(status)) {
+		if (WIFCONTINUED(status))
+		{
 			break;
 		}
-		if(WIFEXITED(status) || WIFSIGNALED(status)) {
+		if (WIFEXITED(status) || WIFSIGNALED(status))
+		{
 			return -2;
 		}
-		if(WIFSTOPPED(status)) {
-			if(WSTOPSIG(status) != SIGTRAP) {
+		if (WIFSTOPPED(status))
+		{
+			if (WSTOPSIG(status) != SIGTRAP)
+			{
 				sig = WSTOPSIG(status);
-				if(sig_count++ == 100) {
-					for(;;)
+				if (sig_count++ == 100)
+				{
+					for (;;)
 						;
 					/* give up */
 					break;
 				}
 				continue;
-			} else {
+			}
+			else
+			{
 				break;
 			}
 		}
 	}
 	ptrace(PTRACE_GETREGS, t->tid, NULL, &regs);
-	if(sig) {
+	if (sig)
+	{
 		kill(t->tid, sig);
 	}
 	ptrace(PTRACE_SETREGS, t->tid, NULL, &t->uregs);
 
-	if(WIFCONTINUED(status)) {
+	if (WIFCONTINUED(status))
+	{
 		return -3;
 	}
 
-	if((long)regs.rax < 0) {
+	if ((long)regs.rax < 0)
+	{
 		errno = -regs.rax;
 		return -1;
 	}
@@ -115,7 +129,8 @@ size_t __tracee_alloc_shared_page(struct thread_tr *t, size_t len)
 	assert(t->active);
 	/* we're treating this as a arena allocator, because we
 	 * assume the memory gets freed soon after a syscall injection */
-	if(t->sp_mark + len >= 0x1000) {
+	if (t->sp_mark + len >= 0x1000)
+	{
 		fprintf(stderr, "failed to allocate memory in shared page for tracee %d\n", t->id);
 		abort();
 	}
@@ -133,12 +148,15 @@ void tracee_free_shared_page(struct thread_tr *t)
 uintptr_t tracee_get_shared_page(struct thread_tr *t)
 {
 	assert(t->active);
-	if(t->shared_page == 0) {
+	if (t->shared_page == 0)
+	{
 		/* setting up a "shared" page (it's not really shared, we just know where it is),
 		 * is as simple as injecting mmap into the process! */
 		long ret = inject_syscall(
-		  t, SYS_mmap, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-		if((void *)ret == MAP_FAILED) {
+			t, SYS_mmap, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+			
+		if ((void *)ret == MAP_FAILED)
+		{
 			err(1, "failed to map shared page for tracee %d", t->id);
 		}
 		t->shared_page = ret;
@@ -150,15 +168,19 @@ std::string tracee_readstr(int child, unsigned long addr)
 {
 	std::string str = "";
 	errno = 0;
-	while(true) {
+	while (true)
+	{
 		unsigned long tmp = ptrace(PTRACE_PEEKDATA, child, addr);
 		addr += sizeof(tmp);
-		if(errno != 0) {
+		if (errno != 0)
+		{
 			break;
 		}
 		char *buf = (char *)&tmp;
-		for(unsigned int i = 0; i < sizeof(tmp); i++) {
-			if(!*buf) {
+		for (unsigned int i = 0; i < sizeof(tmp); i++)
+		{
+			if (!*buf)
+			{
 				return str;
 			}
 			str += *buf++;
@@ -176,14 +198,17 @@ void tracee_set(int child, unsigned long addr, unsigned long val)
 void tracee_copydata(int child, unsigned long addr, char *buf, ssize_t len)
 {
 	errno = 0;
-	while(len > 0) {
+	while (len > 0)
+	{
 		unsigned long tmp = ptrace(PTRACE_PEEKDATA, child, addr);
 		addr += sizeof(tmp);
-		if(errno != 0) {
+		if (errno != 0)
+		{
 			break;
 		}
 		char *b = (char *)&tmp;
-		for(unsigned int i = 0; i < sizeof(tmp) && len; i++, len--) {
+		for (unsigned int i = 0; i < sizeof(tmp) && len; i++, len--)
+		{
 			*buf++ = *b++;
 		}
 	}

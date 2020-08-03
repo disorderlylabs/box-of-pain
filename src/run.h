@@ -49,4 +49,5 @@ void followrun_add(struct run *run);
 bool followrun_step(struct thread_tr *tracee);
 void followrun_dumpall();
 bool followrun_stats();
+
 void dump(const char *, struct run *run);

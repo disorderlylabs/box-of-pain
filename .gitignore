@@ -9,7 +9,9 @@ client
 *.inc
 *.pdf
 .swp
-qs
+qs_thrd
+p_client
+primary
 quorum_server
 rdc
 rdlog_receiver
@@ -19,3 +21,4 @@ simplog_sender
 sls
 server
 .DS_STORE
+.vscode

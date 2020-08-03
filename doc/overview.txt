@@ -1,0 +1,46 @@
+Directory structure reference:
+
+box-of-pain
+├── Docker    <= collection of docker-related shell scripts
+├── camflow   <= ??
+├── doc       <= documentation folder. You are here
+├── examples  <= example programs to run BoP on
+├── scripts   <= shell scripts, now in a folder
+├── src       <= source code and artifacts
+└── tests     <= scripts folder, but for testing scripts
+
+examples
+  Each example program has its own folder and corresponding makefile.
+  Note that client runs on 1234 and both server/quorum-server listen on port 1234.
+
+Docker
+  For running scripts on host relating to docker. Requires docker to run
+
+scripts
+  Scripts to run in a Linux environment. 
+
+Source code reference:
+(best guesses anyway)
+
+src/
+├── defl.h         err.h and a macro for unused
+├── dump.cpp       "dumps" to file
+├── helper.cpp
+├── helper.h
+├── painbox.cpp    Main: argument parsing and
+├── rfollow.cpp
+├── run.cpp
+├── run.h
+├── scnames.cpp
+├── socket.cpp     sockets.* deal with the 
+├── sockets.h
+├── sys.h
+├── sysimp         BoP syscall-handling classes
+│   ├── accept.cpp
+│   ├── clone.cpp
+│   ├── connect.cpp
+│   ├── read.cpp
+│   ├── recvfrom.cpp
+│   ├── sendto.cpp
+│   └── write.cpp
+└── tracee.h        defines proc_tr/thread_tr structs

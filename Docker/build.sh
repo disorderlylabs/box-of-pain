@@ -1,3 +1,3 @@
 #!/bin/sh
-docker build -t painbox ..
+docker build -t painbox $(dirname $0)/..
 

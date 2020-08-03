@@ -4,5 +4,5 @@ RUN apk add build-base gdb
 RUN mkdir /tracees
 WORKDIR /box-of-pain
 COPY . /box-of-pain
-RUN make
+RUN make 
 CMD /bin/sh

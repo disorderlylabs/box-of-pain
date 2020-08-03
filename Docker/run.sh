@@ -1,2 +1,11 @@
 #!/bin/bash
-docker run --cap-add=SYS_PTRACE --rm -it --mount type=bind,source=$(pwd)/tmp,target=/tmp --entrypoint ./painbox painbox -e ./client -e ./server
+
+path=`realpath $(dirname $0)/..`
+
+docker run \
+    --cap-add=SYS_PTRACE \
+    --rm \
+    -it \
+    --mount type=bind,source=${path#/mnt}/tmp,target=/tmp \
+    --entrypoint \
+    ./painbox painbox -e ./examples/client-server/client -e ./examples/client-server/server

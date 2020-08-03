@@ -1,36 +1,32 @@
-CXXFLAGS=-Wall -Wextra -O3 -g -I. -include defl.h -std=gnu++11
+SRC=src
+
+# makefile variables
+CXXFLAGS=-Wall -Wextra -O3 -g -I$(SRC) -include defl.h -std=gnu++11
 CXX=g++
 
-CFLAGS=-std=gnu11 -Wall -Wextra -Og -g
-CC=gcc
+SOURCES_RELATIVE=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp scnames.cpp \
+                 $(addprefix sysimp/, read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp)
 
-#CXXFLAGS+=-fsanitize=address -fsanitize=undefined
-#LIBS+=-lasan -lubsan
-
-LIBS=-lstdc++
-
-SOURCES=painbox.cpp dump.cpp rfollow.cpp helper.cpp run.cpp socket.cpp $(addprefix sysimp/,read.cpp write.cpp accept.cpp connect.cpp recvfrom.cpp sendto.cpp clone.cpp) scnames.cpp
+SOURCES=$(addprefix $(SRC)/, $(SOURCES_RELATIVE))
 DEPS=$(SOURCES:.cpp=.d)
 OBJECTS=$(SOURCES:.cpp=.o)
 
-EXAMPLES=client server quorum_server rdlog_sender rdlog_receiver simplog_sender quorum_server_thrd primary p_client
-EXAMPLES_SRC=$(addsuffix .c,$(EXAMPLES))
+LIBS=-lstdc++
 
-all: painbox $(EXAMPLES)
+all: painbox examples
 
-painbox: $(OBJECTS)
+painbox:$(OBJECTS)
 	$(CXX) -o painbox $(OBJECTS) $(LIBS)
 
-%.o: %.cpp
+$(SRC)/%.o: $(SRC)/%.cpp 
 	$(CXX) $(CXXFLAGS) -c -o $@ $< -MD
 
-%: %.c
-	$(CC) $(CFLAGS) -o $@ $< -MD
+.PHONY: examples clean
+examples:
+	@$(MAKE) -sC examples
 
-quorum_server_thrd: qs_thrd.c
-	$(CC) $(CFLAGS) -o $@ $< -lpthread
-
--include $(DEPS) $(EXAMPLES_SRC:.c=.d)
+-include $(DEPS)
 
 clean:
-	-rm -f $(OBJECTS) $(DEPS) painbox client server $(EXAMPLES) *.m4 *.pdf *.inc *.dot $(EXAMPLES_SRC:.c=.d)
+	-rm -f painbox *.m4 *.pdf *.inc *.dot $(DEPS) $(OBJECTS)
+	-$(MAKE) -sC examples ARGS=clean
